@@ -1,21 +1,127 @@
-season,players,version,rank_corr,top_hits,avg_miss
-2025,Hitters,Last year's points,0.557,32/50,274.5
-2025,Pitchers,Last year's points,0.432,19/40,231.5
-2025,Hitters,"3-yr model, no Savant",0.571,34/50,264.1
-2025,Pitchers,"3-yr model, no Savant",0.412,20/40,207.0
-2025,Hitters,+ Savant (half trust),0.574,32/50,263.7
-2025,Pitchers,+ Savant (half trust),0.418,22/40,205.4
-2025,Hitters,+ Savant (full trust),0.572,32/50,264.0
-2025,Pitchers,+ Savant (full trust),0.417,21/40,204.9
-2025,Hitters,+ Savant half + team,0.574,33/50,264.7
-2025,Pitchers,+ Savant half + team,0.418,21/40,205.5
-2026,Hitters,Last year's points,0.536,27/50,304.7
-2026,Pitchers,Last year's points,0.425,20/40,224.7
-2026,Hitters,"3-yr model, no Savant",0.539,28/50,280.1
-2026,Pitchers,"3-yr model, no Savant",0.428,20/40,204.3
-2026,Hitters,+ Savant (half trust),0.545,28/50,280.5
-2026,Pitchers,+ Savant (half trust),0.433,18/40,202.0
-2026,Hitters,+ Savant (full trust),0.533,27/50,281.1
-2026,Pitchers,+ Savant (full trust),0.43,17/40,200.5
-2026,Hitters,+ Savant half + team,0.541,29/50,281.0
-2026,Pitchers,+ Savant half + team,0.431,18/40,202.0
+season,players,rank_corr,top_hits,avg_miss,version
+2019,Hitters,0.535,0.6,314.346,Last year's points
+2019,Pitchers,0.428,0.575,220.668,Last year's points
+2021,Hitters,0.328,0.48,484.9,Last year's points
+2021,Pitchers,0.384,0.5,242.499,Last year's points
+2022,Hitters,0.47,0.52,293.453,Last year's points
+2022,Pitchers,0.493,0.55,207.429,Last year's points
+2023,Hitters,0.634,0.64,260.842,Last year's points
+2023,Pitchers,0.295,0.475,225.619,Last year's points
+2024,Hitters,0.527,0.52,306.207,Last year's points
+2024,Pitchers,0.22,0.45,231.837,Last year's points
+2025,Hitters,0.557,0.64,274.536,Last year's points
+2025,Pitchers,0.432,0.475,231.527,Last year's points
+2026,Hitters,0.536,0.54,304.734,Last year's points
+2026,Pitchers,0.425,0.5,224.676,Last year's points
+2019,Hitters,0.561,0.54,312.239,Current model
+2019,Pitchers,0.486,0.575,192.13,Current model
+2021,Hitters,0.417,0.52,330.298,Current model
+2021,Pitchers,0.539,0.55,186.753,Current model
+2022,Hitters,0.547,0.6,247.469,Current model
+2022,Pitchers,0.509,0.55,181.233,Current model
+2023,Hitters,0.607,0.6,267.766,Current model
+2023,Pitchers,0.278,0.525,205.09,Current model
+2024,Hitters,0.565,0.56,264.831,Current model
+2024,Pitchers,0.186,0.425,213.861,Current model
+2025,Hitters,0.583,0.62,262.382,Current model
+2025,Pitchers,0.429,0.55,201.564,Current model
+2026,Hitters,0.56,0.6,274.266,Current model
+2026,Pitchers,0.443,0.475,197.729,Current model
+2019,Hitters,0.554,0.54,312.47,No Savant
+2019,Pitchers,0.49,0.55,193.404,No Savant
+2021,Hitters,0.417,0.46,328.212,No Savant
+2021,Pitchers,0.519,0.55,187.399,No Savant
+2022,Hitters,0.548,0.58,247.038,No Savant
+2022,Pitchers,0.511,0.575,181.628,No Savant
+2023,Hitters,0.6,0.62,267.941,No Savant
+2023,Pitchers,0.269,0.5,207.033,No Savant
+2024,Hitters,0.552,0.54,266.906,No Savant
+2024,Pitchers,0.173,0.425,216.238,No Savant
+2025,Hitters,0.58,0.66,262.6,No Savant
+2025,Pitchers,0.423,0.525,202.902,No Savant
+2026,Hitters,0.554,0.6,274.174,No Savant
+2026,Pitchers,0.439,0.475,199.451,No Savant
+2019,Hitters,0.56,0.52,312.312,Full Savant
+2019,Pitchers,0.486,0.625,191.952,Full Savant
+2021,Hitters,0.414,0.5,332.436,Full Savant
+2021,Pitchers,0.54,0.525,186.767,Full Savant
+2022,Hitters,0.539,0.56,248.24,Full Savant
+2022,Pitchers,0.506,0.55,181.129,Full Savant
+2023,Hitters,0.606,0.62,267.744,Full Savant
+2023,Pitchers,0.281,0.525,203.573,Full Savant
+2024,Hitters,0.57,0.54,263.838,Full Savant
+2024,Pitchers,0.199,0.45,211.823,Full Savant
+2025,Hitters,0.575,0.62,262.798,Full Savant
+2025,Pitchers,0.426,0.525,201.441,Full Savant
+2026,Hitters,0.551,0.58,275.012,Full Savant
+2026,Pitchers,0.441,0.45,196.803,Full Savant
+2019,Hitters,0.56,0.54,311.586,With team context
+2019,Pitchers,0.487,0.6,192.306,With team context
+2021,Hitters,0.418,0.52,329.172,With team context
+2021,Pitchers,0.54,0.55,186.445,With team context
+2022,Hitters,0.549,0.58,247.552,With team context
+2022,Pitchers,0.51,0.55,181.051,With team context
+2023,Hitters,0.597,0.6,268.884,With team context
+2023,Pitchers,0.276,0.525,205.072,With team context
+2024,Hitters,0.559,0.56,265.468,With team context
+2024,Pitchers,0.187,0.425,213.781,With team context
+2025,Hitters,0.58,0.62,263.136,With team context
+2025,Pitchers,0.428,0.55,201.6,With team context
+2026,Hitters,0.556,0.6,274.903,With team context
+2026,Pitchers,0.442,0.475,197.757,With team context
+2019,Hitters,0.558,0.54,314.258,Heavier regression
+2019,Pitchers,0.484,0.575,191.835,Heavier regression
+2021,Hitters,0.418,0.5,332.944,Heavier regression
+2021,Pitchers,0.541,0.5,189.603,Heavier regression
+2022,Hitters,0.545,0.6,248.866,Heavier regression
+2022,Pitchers,0.508,0.55,182.388,Heavier regression
+2023,Hitters,0.605,0.62,269.086,Heavier regression
+2023,Pitchers,0.272,0.5,204.782,Heavier regression
+2024,Hitters,0.567,0.54,264.67,Heavier regression
+2024,Pitchers,0.187,0.45,212.429,Heavier regression
+2025,Hitters,0.575,0.62,264.379,Heavier regression
+2025,Pitchers,0.418,0.55,201.28,Heavier regression
+2026,Hitters,0.556,0.6,273.691,Heavier regression
+2026,Pitchers,0.439,0.475,196.369,Heavier regression
+2019,Hitters,0.543,0.56,316.275,No age playing time
+2019,Pitchers,0.478,0.55,195.697,No age playing time
+2021,Hitters,0.416,0.5,327.047,No age playing time
+2021,Pitchers,0.541,0.525,184.129,No age playing time
+2022,Hitters,0.528,0.54,254.604,No age playing time
+2022,Pitchers,0.497,0.575,182.779,No age playing time
+2023,Hitters,0.576,0.64,274.383,No age playing time
+2023,Pitchers,0.274,0.525,206.771,No age playing time
+2024,Hitters,0.554,0.56,270.791,No age playing time
+2024,Pitchers,0.185,0.4,217.537,No age playing time
+2025,Hitters,0.574,0.64,263.689,No age playing time
+2025,Pitchers,0.429,0.55,204.785,No age playing time
+2026,Hitters,0.545,0.56,280.478,No age playing time
+2026,Pitchers,0.442,0.45,202.054,No age playing time
+2019,Hitters,0.561,0.54,312.239,No stat-by-stat (P)
+2019,Pitchers,0.485,0.575,192.451,No stat-by-stat (P)
+2021,Hitters,0.417,0.52,330.298,No stat-by-stat (P)
+2021,Pitchers,0.528,0.55,188.097,No stat-by-stat (P)
+2022,Hitters,0.547,0.6,247.469,No stat-by-stat (P)
+2022,Pitchers,0.508,0.55,181.787,No stat-by-stat (P)
+2023,Hitters,0.607,0.6,267.766,No stat-by-stat (P)
+2023,Pitchers,0.275,0.5,205.787,No stat-by-stat (P)
+2024,Hitters,0.565,0.56,264.831,No stat-by-stat (P)
+2024,Pitchers,0.177,0.4,214.34,No stat-by-stat (P)
+2025,Hitters,0.583,0.62,262.382,No stat-by-stat (P)
+2025,Pitchers,0.421,0.525,202.12,No stat-by-stat (P)
+2026,Hitters,0.56,0.6,274.266,No stat-by-stat (P)
+2026,Pitchers,0.44,0.5,197.612,No stat-by-stat (P)
+2019,Hitters,0.537,0.56,318.137,Original Oct 26 model
+2019,Pitchers,0.467,0.525,195.95,Original Oct 26 model
+2021,Hitters,0.414,0.5,329.664,Original Oct 26 model
+2021,Pitchers,0.525,0.5,188.989,Original Oct 26 model
+2022,Hitters,0.524,0.54,255.436,Original Oct 26 model
+2022,Pitchers,0.485,0.55,184.722,Original Oct 26 model
+2023,Hitters,0.572,0.64,275.328,Original Oct 26 model
+2023,Pitchers,0.256,0.525,206.387,Original Oct 26 model
+2024,Hitters,0.559,0.56,270.483,Original Oct 26 model
+2024,Pitchers,0.17,0.375,216.27,Original Oct 26 model
+2025,Hitters,0.568,0.64,265.687,Original Oct 26 model
+2025,Pitchers,0.4,0.525,205.232,Original Oct 26 model
+2026,Hitters,0.537,0.58,279.66,Original Oct 26 model
+2026,Pitchers,0.426,0.475,200.243,Original Oct 26 model

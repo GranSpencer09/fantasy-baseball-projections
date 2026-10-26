@@ -39,8 +39,24 @@ HIT_REGRESS_PA = 600      # league-average PA mixed in (weighted units). Backtes
 PIT_REGRESS_BF = 450      # league-average batters faced mixed in. Backtest: 450 beat 900
 SAVANT_TRUST = 0.5        # 0 = ignore Savant, 1 = fully trust expected stats
 PEAK_AGE = 29
-TEAM_TRUST = 0.5          # how much a better/worse lineup moves R, RBI and wins
+TEAM_TRUST = 0.0          # how much a better/worse lineup moves R, RBI and wins. Backtest (7 seasons): slightly hurts, so off. Try 0.5 again once opening-day rosters are saved
+# Stat-by-stat regression. Some stats tell you about a player's true skill
+# after a few weeks (strikeouts, walks); others take years (doubles, hits
+# allowed). Numbers are relative: 0.5 = trust it twice as fast as average,
+# 2 = need twice as much data. Strength 0 = treat all stats the same.
+HIT_STAT_SPEED = {"singles": 1.0, "doubles": 2.0, "triples": 2.0, "homeRuns": 0.5,
+                  "baseOnBalls": 0.4, "hitByPitch": 0.6, "stolenBases": 0.5,
+                  "runs": 1.0, "rbi": 1.0}
+PIT_STAT_SPEED = {"outs": 1.0, "strikeOuts": 0.3, "hits": 2.0, "earnedRuns": 2.0,
+                  "baseOnBalls": 0.6, "hitBatsmen": 0.8}
+HIT_STAT_STRENGTH = 0.0   # Backtest: no help for hitters, so off
+PIT_STAT_STRENGTH = 1.0   # Backtest: helps pitchers (trust K rate fast, hits allowed slow)
 PT_LAST, PT_PREV, PT_BASE = 0.5, 0.1, 1.0   # playing time: share of last year, year before, baseline
+IL_PENALTY = 0.0          # cut playing time by IL history. Backtest: hurts (past PA already counts it), so off
+SURGERY_PT = 1.0          # multiplier if he ended last season hurt after surgery. Backtest: no effect, off
+AGE_PT = 0.015            # playing time lost per year of age over 30. Backtest: 1.5% best
+PRO_BLEND = 0.0           # share of points from Steamer/ZiPS (0.5 = 50/50). Turn on once next
+                          # season's pro projections are out. See pro_blend.py.
 LINEUP_SIZE = 13          # hitters per team that count toward team offense
 SKILL_STATS = ["singles", "doubles", "triples", "homeRuns", "baseOnBalls",
                "hitByPitch", "stolenBases"]  # a hitter's own production, not teammates'
@@ -104,6 +120,55 @@ def score(df, weights):
     return sum(df[stat] * pts for stat, pts in weights.items()).round(1)
 
 
+def injury_features(weights):
+    """Two health signals per player, using only seasons up to LAST:
+      il_share  Weighted share of recent seasons spent on the injured list.
+      surgery   Ended last season on the IL after surgery (Tommy John, etc.)."""
+    inj = load("injuries")
+    inj = inj[inj.season <= LAST].copy()
+    inj["date"] = pd.to_datetime(inj.date)
+    inj = inj.sort_values(["player_id", "date"])
+    stints = []
+    for pid, g in inj.groupby("player_id"):
+        start = None
+        for _, r in g.iterrows():
+            if r.action == "placed" and start is None:
+                start = r.date
+            elif r.action == "activated" and start is not None:
+                stints.append((pid, start, r.date))
+                start = None
+        if start is not None:
+            stints.append((pid, start, None))   # never activated: still hurt
+    rows = []
+    for pid, s, e in stints:
+        yr = s.year
+        open_, close = pd.Timestamp(f"{yr}-03-28"), pd.Timestamp(f"{yr}-09-30")
+        end = min(e if e is not None else close, close)
+        days = max((end - max(s, open_)).days, 0)
+        rows.append({"player_id": pid, "season": yr, "days": days})
+    days = pd.DataFrame(rows, columns=["player_id", "season", "days"])
+    days = days[days.season.isin(weights)]
+    days["w"] = days.season.map(weights) * days.days
+    il_share = days.groupby("player_id").w.sum() / (186 * sum(weights.values()))
+
+    # Ended last season hurt after surgery: last IL move of the season mentions surgery
+    last = inj[inj.season == LAST].groupby("player_id").last()
+    words = "surgery|tommy john|ucl|reconstruction"
+    hurt = last[(last.action != "activated") &
+                inj[inj.season == LAST].groupby("player_id").description
+                .apply(lambda d: d.str.lower().str.contains(words).any())]
+    return il_share, set(hurt.index)
+
+
+def health_factor(index, age, weights):
+    """Multiplier on projected playing time from injury history and age."""
+    il_share, surgery = injury_features(weights)
+    f = 1 - IL_PENALTY * il_share.reindex(index).fillna(0)
+    f = f * pd.Series(np.where(index.isin(list(surgery)), SURGERY_PT, 1.0), index=index)
+    f = f * (1 - AGE_PT * (age.reindex(index) - 30).clip(lower=0).fillna(0))
+    return f.clip(0.2, 1.0)
+
+
 def team_context():
     """Each team's runs per game last season, and each player's current team."""
     tr = load("team_runs")
@@ -157,7 +222,8 @@ def project_hitters(rules):
     lg_rate = lg[HIT_RATE_STATS].sum() / lg.plateAppearances.sum()
     rates = pd.DataFrame(index=tot.index)
     for s in HIT_RATE_STATS:
-        rates[s] = (tot[s] + lg_rate[s] * HIT_REGRESS_PA) / (tot.plateAppearances + HIT_REGRESS_PA)
+        reg = HIT_REGRESS_PA * HIT_STAT_SPEED[s] ** HIT_STAT_STRENGTH
+        rates[s] = (tot[s] + lg_rate[s] * reg) / (tot.plateAppearances + reg)
 
     # 3. Savant luck correction (on contact stats only, not walks or steals)
     f, sav = savant_factor(load("savant_batter"), HIT_WEIGHTS, "woba", "est_woba",
@@ -179,6 +245,8 @@ def project_hitters(rules):
 
     # 5. Playing time: half of last year + a tenth of the year before + 200
     proj_pa = (PT_LAST * pa.get(LAST, 0) + PT_PREV * pa.get(LAST - 1, 0) + 200 * PT_BASE).clip(upper=720)
+    if IL_PENALTY or SURGERY_PT != 1 or AGE_PT:
+        proj_pa = proj_pa.reindex(rates.index) * health_factor(rates.index, age_next, HIT_WEIGHTS)
 
     out = rates[HIT_RATE_STATS].mul(proj_pa.reindex(rates.index), axis=0)
     out["PA"] = proj_pa.reindex(rates.index)
@@ -240,7 +308,8 @@ def project_pitchers(rules, new_rg, old_rg):
     lg_rate = lg[PIT_RATE_STATS].sum() / lg.battersFaced.sum()
     rates = pd.DataFrame(index=tot.index)
     for s in PIT_RATE_STATS:
-        rates[s] = (tot[s] + lg_rate[s] * PIT_REGRESS_BF) / (tot.battersFaced + PIT_REGRESS_BF)
+        reg = PIT_REGRESS_BF * PIT_STAT_SPEED[s] ** PIT_STAT_STRENGTH
+        rates[s] = (tot[s] + lg_rate[s] * reg) / (tot.battersFaced + reg)
 
     # 3. Savant: earned runs move toward xERA, hits toward expected batting avg
     sav_raw = load("savant_pitcher")
@@ -272,6 +341,8 @@ def project_pitchers(rules, new_rg, old_rg):
     cap = np.where(role == "SP", 850, 300)
     proj_bf = (PT_LAST * bf.get(LAST, 0).reindex(rates.index) + PT_PREV * bf.get(LAST - 1, 0).reindex(rates.index)
                + base).clip(upper=cap)
+    if IL_PENALTY or SURGERY_PT != 1 or AGE_PT:
+        proj_bf = proj_bf * health_factor(rates.index, age_next, PIT_WEIGHTS)
 
     out = rates[PIT_RATE_STATS].mul(proj_bf, axis=0)
     out["BF"] = proj_bf
@@ -324,11 +395,37 @@ def project_pitchers(rules, new_rg, old_rg):
     return out[cols]
 
 
+def blend_with_pros(hitters, pitchers, rules):
+    """Mix our points with the Steamer/ZiPS average. Players the pros don't
+    project keep our number."""
+    import pro_blend
+    pro_h, pro_p = pro_blend.pro_points(load("pro_projections"), rules)
+    out = []
+    for df, pro in [(hitters, pro_h), (pitchers, pro_p)]:
+        df = df.copy()
+        df["pts_model"] = df.points
+        pro = pro.reindex(df.index)
+        # Pros assume more playing time, so their totals run higher. Put them on our
+        # scale using the top 300 players both systems project.
+        both = df.pts_model.notna() & pro.notna()
+        top = df[both].pts_model.nlargest(300).index
+        pro = pro * (df.pts_model[top].median() / pro[top].median())
+        df["pts_pro"] = pro.round(1)
+        has = df.pts_pro.notna()
+        df.loc[has, "points"] = ((1 - PRO_BLEND) * df.pts_model + PRO_BLEND * df.pts_pro)[has].round(1)
+        df = df.sort_values("points", ascending=False)
+        df["rank"] = range(1, len(df) + 1)
+        out.append(df)
+    return out
+
+
 def main():
     with open("scoring.json") as f:
         rules = json.load(f)
     hitters, teams = project_hitters(rules)
     pitchers = project_pitchers(rules, teams.proj_R_per_G, teams.old_roster_R_per_G)
+    if PRO_BLEND:
+        hitters, pitchers = blend_with_pros(hitters, pitchers, rules)
     hitters.to_csv(f"projections_{NEXT}_hitters.csv", index_label="player_id")
     pitchers.to_csv(f"projections_{NEXT}_pitchers.csv", index_label="player_id")
 

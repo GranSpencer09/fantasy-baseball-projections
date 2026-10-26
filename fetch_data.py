@@ -6,7 +6,7 @@ Pulls, for each season:
   - Baseball Savant expected stats (xBA, xSLG, xwOBA, xERA)
 
 Run it:
-  python fetch_data.py                 # default seasons 2022-2026 (2022-23 are for backtesting)
+  python fetch_data.py                 # default seasons 2016-2026 (older seasons are for backtesting)
   python fetch_data.py 2023 2024 2025  # pick your own
 
 Rerun any time. It replaces the old data with fresh data, which is how the
@@ -20,7 +20,9 @@ import sys
 import pandas as pd
 import requests
 
-SEASONS = [int(s) for s in sys.argv[1:]] or [2022, 2023, 2024, 2025, 2026]
+import pro_blend
+
+SEASONS = [int(s) for s in sys.argv[1:]] or list(range(2016, 2027))
 DB = "baseball.db"
 
 
@@ -98,9 +100,35 @@ def current_rosters():
     return pd.DataFrame(rows)
 
 
+def injured_list(season):
+    """Every injured list move in a season: who, when, and what kind.
+    MLB only gives a sentence like 'placed RHP X on the 15-day injured list',
+    so we read the action out of the words."""
+    params = dict(sportId=1, startDate=f"{season}-01-01", endDate=f"{season}-12-31")
+    data = requests.get("https://statsapi.mlb.com/api/v1/transactions",
+                        params=params, timeout=180).json()
+    rows = []
+    for t in data.get("transactions", []):
+        desc = t.get("description", "")
+        low = desc.lower()
+        if "injured list" not in low or "person" not in t:
+            continue
+        if "placed" in low:
+            action = "placed"
+        elif "transferred" in low:
+            action = "transferred"
+        elif "activated" in low or "reinstated" in low:
+            action = "activated"
+        else:
+            continue
+        rows.append({"player_id": t["person"]["id"], "date": t.get("date", "")[:10],
+                     "season": season, "action": action, "description": desc})
+    return pd.DataFrame(rows)
+
+
 def main():
     tables = {"hitting": [], "pitching": [], "savant_batter": [], "savant_pitcher": [],
-              "team_runs": [], "positions": []}
+              "team_runs": [], "positions": [], "injuries": []}
     for season in SEASONS:
         print(f"Pulling {season}...")
         tables["hitting"].append(mlb_stats("hitting", season))
@@ -109,8 +137,14 @@ def main():
         tables["savant_pitcher"].append(savant_expected("pitcher", season))
         tables["team_runs"].append(team_runs(season))
         tables["positions"].append(games_by_position(season))
+        tables["injuries"].append(injured_list(season))
     print("Pulling current rosters...")
     tables["rosters"] = [current_rosters()]
+    print("Pulling Steamer and ZiPS projections...")
+    try:
+        tables["pro_projections"] = [pro_blend.fetch_pro()]
+    except Exception as e:  # FanGraphs being down shouldn't break the rest
+        print(f"  Skipped pro projections: {e}")
 
     with sqlite3.connect(DB) as db:
         for name, frames in tables.items():
