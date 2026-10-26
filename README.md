@@ -33,6 +33,17 @@ Outputs include `projections_2027_team_offense.csv`, showing each team's project
 
 `value.py` converts points into value over replacement (VOR) using the roster settings in `league.json` (10 teams, C/1B/2B/3B/SS/3 OF/2 Util, 2 SP/2 RP/4 P). It fills every starting slot league-wide, takes the best leftover player at each position as replacement level, and ranks hitters and pitchers together by how far above that line they are. Position eligibility follows Yahoo's rule: 5 starts or 10 games at a position last season.
 
+## Backtest
+
+`python backtest.py` rewinds the model, projects 2025 and 2026 using only prior seasons, and grades it against what happened (`backtest_results.csv`). Graded pool: the top 200 hitters and 150 pitchers by the prior season's points.
+
+Findings (Oct 2026):
+- Hitters: ranks slightly better than "just use last year's points" (rank correlation ~0.56 vs ~0.55) and misses by ~10% fewer points per player.
+- Pitchers: about even with last year's points on ranking, ~10% closer on point totals.
+- Savant at half trust helps a little; full trust is worse. Team context is neutral (hard to test without saved opening-day rosters).
+- Lighter regression to league average (600 PA / 450 BF) beat the Marcel defaults, so those are now the settings. Marcel's playing time formula beat every alternative tried.
+- Biggest limit: injuries and playing time, which no setting fixes. Better playing-time data is the highest-value next step.
+
 ## Data sources
 
 - MLB Stats API (statsapi.mlb.com)
@@ -42,6 +53,6 @@ Outputs include `projections_2027_team_offense.csv`, showing each team's project
 
 - Park factors (Coors, etc.)
 - Bullpen role changes for saves
-- Injury data and depth charts for playing time
+- Injury data and depth charts for playing time (backtest says this matters most)
 - In-season updates that blend projections with current stats
 

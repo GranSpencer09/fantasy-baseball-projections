@@ -6,7 +6,7 @@ Pulls, for each season:
   - Baseball Savant expected stats (xBA, xSLG, xwOBA, xERA)
 
 Run it:
-  python fetch_data.py                 # default seasons 2024-2026
+  python fetch_data.py                 # default seasons 2022-2026 (2022-23 are for backtesting)
   python fetch_data.py 2023 2024 2025  # pick your own
 
 Rerun any time. It replaces the old data with fresh data, which is how the
@@ -20,7 +20,7 @@ import sys
 import pandas as pd
 import requests
 
-SEASONS = [int(s) for s in sys.argv[1:]] or [2024, 2025, 2026]
+SEASONS = [int(s) for s in sys.argv[1:]] or [2022, 2023, 2024, 2025, 2026]
 DB = "baseball.db"
 
 

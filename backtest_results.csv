@@ -1,0 +1,21 @@
+season,players,version,rank_corr,top_hits,avg_miss
+2025,Hitters,Last year's points,0.557,32/50,274.5
+2025,Pitchers,Last year's points,0.432,19/40,231.5
+2025,Hitters,"3-yr model, no Savant",0.571,34/50,264.1
+2025,Pitchers,"3-yr model, no Savant",0.412,20/40,207.0
+2025,Hitters,+ Savant (half trust),0.574,32/50,263.7
+2025,Pitchers,+ Savant (half trust),0.418,22/40,205.4
+2025,Hitters,+ Savant (full trust),0.572,32/50,264.0
+2025,Pitchers,+ Savant (full trust),0.417,21/40,204.9
+2025,Hitters,+ Savant half + team,0.574,33/50,264.7
+2025,Pitchers,+ Savant half + team,0.418,21/40,205.5
+2026,Hitters,Last year's points,0.536,27/50,304.7
+2026,Pitchers,Last year's points,0.425,20/40,224.7
+2026,Hitters,"3-yr model, no Savant",0.539,28/50,280.1
+2026,Pitchers,"3-yr model, no Savant",0.428,20/40,204.3
+2026,Hitters,+ Savant (half trust),0.545,28/50,280.5
+2026,Pitchers,+ Savant (half trust),0.433,18/40,202.0
+2026,Hitters,+ Savant (full trust),0.533,27/50,281.1
+2026,Pitchers,+ Savant (full trust),0.43,17/40,200.5
+2026,Hitters,+ Savant half + team,0.541,29/50,281.0
+2026,Pitchers,+ Savant half + team,0.431,18/40,202.0

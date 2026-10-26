@@ -35,11 +35,12 @@ NEXT = LAST + 1       # season we're projecting
 # ---------- TUNABLE settings ----------
 HIT_WEIGHTS = {LAST: 5, LAST - 1: 4, LAST - 2: 3}   # how much each season counts
 PIT_WEIGHTS = {LAST: 3, LAST - 1: 2, LAST - 2: 1}
-HIT_REGRESS_PA = 1200     # league-average PA mixed in (weighted units)
-PIT_REGRESS_BF = 900      # league-average batters faced mixed in
+HIT_REGRESS_PA = 600      # league-average PA mixed in (weighted units). Backtest: 600 beat 1200
+PIT_REGRESS_BF = 450      # league-average batters faced mixed in. Backtest: 450 beat 900
 SAVANT_TRUST = 0.5        # 0 = ignore Savant, 1 = fully trust expected stats
 PEAK_AGE = 29
 TEAM_TRUST = 0.5          # how much a better/worse lineup moves R, RBI and wins
+PT_LAST, PT_PREV, PT_BASE = 0.5, 0.1, 1.0   # playing time: share of last year, year before, baseline
 LINEUP_SIZE = 13          # hitters per team that count toward team offense
 SKILL_STATS = ["singles", "doubles", "triples", "homeRuns", "baseOnBalls",
                "hitByPitch", "stolenBases"]  # a hitter's own production, not teammates'
@@ -48,6 +49,23 @@ HIT_RATE_STATS = ["singles", "doubles", "triples", "homeRuns", "baseOnBalls",
                   "hitByPitch", "stolenBases", "runs", "rbi"]
 CONTACT_STATS = ["singles", "doubles", "triples", "homeRuns", "runs", "rbi"]  # luck-sensitive
 PIT_RATE_STATS = ["outs", "strikeOuts", "hits", "earnedRuns", "baseOnBalls", "hitBatsmen"]
+BACKTEST = False          # True when rewinding to test the model on a past season
+
+
+def configure(last=None, savant=None, team=None, backtest=None):
+    """Change settings from another script (used by backtest.py).
+    last=2025 means 'pretend 2025 just ended and project 2026.'"""
+    global LAST, NEXT, HIT_WEIGHTS, PIT_WEIGHTS, SAVANT_TRUST, TEAM_TRUST, BACKTEST
+    if last is not None:
+        LAST, NEXT = last, last + 1
+        HIT_WEIGHTS = {LAST: 5, LAST - 1: 4, LAST - 2: 3}
+        PIT_WEIGHTS = {LAST: 3, LAST - 1: 2, LAST - 2: 1}
+    if savant is not None:
+        SAVANT_TRUST = savant
+    if team is not None:
+        TEAM_TRUST = team
+    if backtest is not None:
+        BACKTEST = backtest
 
 
 def load(table):
@@ -91,7 +109,14 @@ def team_context():
     tr = load("team_runs")
     tr = tr[tr.season == LAST].set_index("team_id")
     old_rg = tr.runs / tr.games
-    roster = load("rosters").drop_duplicates("player_id").set_index("player_id")
+    if BACKTEST:
+        # No saved opening-day rosters from past years, so use the team each
+        # player played for in the projected season as a stand-in.
+        frames = [load("hitting"), load("pitching")]
+        roster = pd.concat([f[f.season == NEXT][["player_id", "team_id", "team"]] for f in frames])
+    else:
+        roster = load("rosters")
+    roster = roster.drop_duplicates("player_id").set_index("player_id")
     return old_rg, roster
 
 
@@ -120,7 +145,7 @@ def team_factor(new_rg, old_rg, low, high):
 
 def project_hitters(rules):
     h = load("hitting")
-    h = h[h.pos != "P"]
+    h = h[(h.pos != "P") & (h.season <= LAST)]   # never peek at the future
     h["singles"] = h.hits - h.doubles - h.triples - h.homeRuns
     cols = HIT_RATE_STATS + ["plateAppearances"]
 
@@ -153,7 +178,7 @@ def project_hitters(rules):
         rates[s] *= rates.age_adj
 
     # 5. Playing time: half of last year + a tenth of the year before + 200
-    proj_pa = (0.5 * pa.get(LAST, 0) + 0.1 * pa.get(LAST - 1, 0) + 200).clip(upper=720)
+    proj_pa = (PT_LAST * pa.get(LAST, 0) + PT_PREV * pa.get(LAST - 1, 0) + 200 * PT_BASE).clip(upper=720)
 
     out = rates[HIT_RATE_STATS].mul(proj_pa.reindex(rates.index), axis=0)
     out["PA"] = proj_pa.reindex(rates.index)
@@ -204,7 +229,7 @@ def project_hitters(rules):
 
 def project_pitchers(rules, new_rg, old_rg):
     p = load("pitching")
-    p = p[p.pos.isin(["P", "TWP"])]  # drop position players who mopped up an inning
+    p = p[p.pos.isin(["P", "TWP"]) & (p.season <= LAST)]  # no mop-up position players, no future
     cols = PIT_RATE_STATS + ["battersFaced"]
 
     # 1. Weighted baseline
@@ -243,9 +268,9 @@ def project_pitchers(rules, new_rg, old_rg):
                      index=latest.index).reindex(rates.index)
 
     # 5. Playing time (batters faced)
-    base = np.where(role == "SP", 250, 105)   # about 60 IP for starters, 25 for relievers
+    base = np.where(role == "SP", 250, 105) * PT_BASE   # about 60 IP for starters, 25 for relievers
     cap = np.where(role == "SP", 850, 300)
-    proj_bf = (0.5 * bf.get(LAST, 0).reindex(rates.index) + 0.1 * bf.get(LAST - 1, 0).reindex(rates.index)
+    proj_bf = (PT_LAST * bf.get(LAST, 0).reindex(rates.index) + PT_PREV * bf.get(LAST - 1, 0).reindex(rates.index)
                + base).clip(upper=cap)
 
     out = rates[PIT_RATE_STATS].mul(proj_bf, axis=0)
