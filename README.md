@@ -9,6 +9,7 @@ pip install pandas requests numpy
 python fetch_data.py     # download 3 seasons of MLB + Baseball Savant data into baseball.db
 python project.py        # build projections_2027_hitters.csv and projections_2027_pitchers.csv
 python value.py          # draft_rankings_2027.csv: value over replacement for my league
+python build_board.py    # draft_board.html: draft-day board (mark picks, roster, best available)
 python rank_players.py   # (optional) rank last season's actual points
 ```
 
@@ -43,4 +44,4 @@ Outputs include `projections_2027_team_offense.csv`, showing each team's project
 - Bullpen role changes for saves
 - Injury data and depth charts for playing time
 - In-season updates that blend projections with current stats
-- Draft-day board
+

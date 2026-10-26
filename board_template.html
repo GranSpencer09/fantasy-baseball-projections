@@ -1,0 +1,381 @@
+<title>2027 Draft Room</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky "on the clock" strip, then the big board with a narrow
+   war-room column (best available + my roster card) beside it. */
+:root {
+  --bg: #eef2ec;        /* chalked infield dirt gone pale */
+  --surface: #ffffff;
+  --ink: #16201a;
+  --muted: #5b685f;
+  --line: #d5ddd3;
+  --accent: #1d6a43;    /* grass */
+  --accent-soft: #e0eee5;
+  --stitch: #c4332b;    /* ball seam red: only for "you're up" */
+  --stitch-soft: #fbe7e5;
+  --taken: #a7b1aa;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1411; --surface: #151d18; --ink: #e5ece7; --muted: #8fa096; --line: #26322b;
+    --accent: #5dbb88; --accent-soft: #1a2f23; --stitch: #f0685d; --stitch-soft: #3a1d1b;
+    --taken: #4c5a51; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1411; --surface: #151d18; --ink: #e5ece7; --muted: #8fa096; --line: #26322b;
+  --accent: #5dbb88; --accent-soft: #1a2f23; --stitch: #f0685d; --stitch-soft: #3a1d1b;
+  --taken: #4c5a51; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px;
+  line-height: 1.45; margin: 0;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+
+/* ---------- Clock strip ---------- */
+.clock {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.clock-inner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px;
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: 1280px; margin: 0 auto;
+}
+.mark { font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; margin: 0; }
+.mark span { color: var(--accent); }
+.pickbox { display: flex; align-items: baseline; gap: 8px; }
+.pickbox .lbl { font-family: var(--f-display); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--muted); }
+.pickbox .val { font-family: var(--f-data); font-size: 18px; font-weight: 500; }
+.status {
+  font-family: var(--f-display); font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  font-size: 15px; padding: 4px 10px; border-radius: 3px; background: var(--accent-soft); color: var(--accent);
+}
+.status.up { background: var(--stitch); color: #fff; }
+.status.done { background: var(--line); color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; }
+.controls label { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.controls select { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+.btn { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; font-size: 13px; }
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.danger { color: var(--stitch); border-color: var(--stitch); }
+
+/* ---------- Main layout ---------- */
+.wrap {
+  max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (max-width: 900px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); }
+  .side { order: -1; }
+}
+h2 { font-family: var(--f-display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 15px; margin: 0 0 8px; color: var(--muted); }
+
+/* ---------- Filters ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-spacing: .04em;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 3px; padding: 3px 9px; min-width: 34px;
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.search { flex: 1 1 180px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; }
+.toggle { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+
+/* ---------- Board table ---------- */
+.board-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  font-family: var(--f-display); font-weight: 600; text-transform: uppercase; letter-spacing: .07em;
+  font-size: 12px; color: var(--muted); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: var(--surface);
+}
+td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th.r, td.r { text-align: right; }
+tr.tier td { border-top: 2px solid var(--ink); }
+.name { font-weight: 600; }
+.meta { font-size: 12px; color: var(--muted); }
+.pos { font-family: var(--f-display); font-weight: 600; letter-spacing: .04em; font-size: 14px; }
+.pos.p { color: var(--accent); }
+.vor { font-weight: 500; }
+tr.off td { color: var(--taken); }
+tr.off .name { text-decoration: line-through; font-weight: 400; }
+tr.mine td { background: var(--accent-soft); }
+tr.mine .name { text-decoration: none; color: var(--accent); font-weight: 600; }
+.acts { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; }
+.act { border: 1px solid var(--line); background: var(--bg); border-radius: 3px; font-size: 12px; padding: 3px 8px; }
+.act.mine-btn { border-color: var(--accent); color: var(--accent); }
+.up .act.mine-btn { background: var(--stitch); border-color: var(--stitch); color: #fff; }
+.act.undo { color: var(--muted); }
+.empty { padding: 24px; text-align: center; color: var(--muted); }
+@media (max-width: 560px) {
+  .hide-sm { display: none; }
+  td, th { padding: 7px 6px; }
+}
+
+/* ---------- Sidebar ---------- */
+.side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 14px; }
+.best { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.best li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.best li:last-child { border-bottom: 0; }
+.fit { font-family: var(--f-display); font-weight: 600; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }
+.roster { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 0; font-size: 13px; }
+.roster div { padding: 5px 0; border-bottom: 1px solid var(--line); }
+.roster .slot { font-family: var(--f-display); font-weight: 600; letter-spacing: .05em; color: var(--muted); }
+.roster .open { color: var(--muted); font-style: italic; }
+.roster .filled { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.totals { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+@media (prefers-reduced-motion: no-preference) { tr { transition: background-color .15s; } }
+</style>
+
+<header class="clock">
+  <div class="clock-inner">
+    <h1 class="mark">Draft <span>Room</span></h1>
+    <div class="pickbox"><span class="lbl">Round</span><span class="val" id="round">1</span></div>
+    <div class="pickbox"><span class="lbl">Pick</span><span class="val" id="pick">1</span></div>
+    <div class="status" id="status">On the clock</div>
+    <div class="controls">
+      <label for="slot">My slot
+        <select id="slot"></select>
+      </label>
+      <button class="btn" id="undo" type="button">Undo last pick</button>
+      <button class="btn" id="reset" type="button">Reset draft</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="boardcol" aria-label="Player board">
+    <div class="filters">
+      <div class="chips" id="chips" role="group" aria-label="Filter by position"></div>
+      <input class="search" id="search" type="search" placeholder="Search players or teams" autocomplete="off">
+      <label class="toggle" for="hide"><input type="checkbox" id="hide" checked> Hide drafted</label>
+    </div>
+    <div class="board-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="r">#</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="r hide-sm">Proj pts</th>
+            <th class="r">Value</th>
+            <th class="r"><span class="hide-sm">Mark</span></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:10px">Value is projected points above the best player left on waivers at that position. A thick line marks a tier break: a drop of 9+ value from the player above.</p>
+  </section>
+
+  <aside class="side">
+    <div class="panel">
+      <h2>Best available</h2>
+      <ol class="best" id="best"></ol>
+    </div>
+    <div class="panel">
+      <h2>My roster</h2>
+      <div class="roster" id="roster"></div>
+      <div class="totals"><span id="mycount">0 drafted</span><span id="mypts" class="num">0 proj pts</span></div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const PLAYERS = /*PLAYERS*/[];
+const LEAGUE = /*LEAGUE*/{};
+const TEAMS = LEAGUE.teams || 10;
+const HIT_ORDER = ["C", "SS", "2B", "3B", "1B", "OF"];
+const STORE = "draftroom-2027";
+
+// Roster template from league settings: [{slot, kind}]
+const SLOTS = [];
+for (const [s, n] of Object.entries(LEAGUE.hitter_slots || {})) for (let i = 0; i < n; i++) SLOTS.push(s);
+for (const [s, n] of Object.entries(LEAGUE.pitcher_slots || {})) for (let i = 0; i < n; i++) SLOTS.push(s);
+for (let i = 0; i < (LEAGUE.bench || 0); i++) SLOTS.push("BN");
+const ROUNDS = SLOTS.length;
+const TOTAL_PICKS = ROUNDS * TEAMS;
+
+const byId = new Map(PLAYERS.map(p => [p.id, p]));
+PLAYERS.forEach((p, i) => {
+  p.rank = i + 1;
+  p.pos = p.p.split("/");
+  p.tier = i > 0 && PLAYERS[i - 1].v - p.v >= 9;
+});
+
+let state = { slot: 5, picks: [] };   // picks: [{id, mine}]
+try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && Array.isArray(s.picks)) state = s; } catch (e) {}
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
+
+let filter = "All";
+let resetArmed = false;
+
+// Snake order: odd rounds go 1..10, even rounds 10..1
+function teamForPick(pick) {
+  const r = Math.ceil(pick / TEAMS), i = (pick - 1) % TEAMS;
+  return r % 2 ? i + 1 : TEAMS - i;
+}
+function nextMyPick(from) {
+  for (let p = from; p <= TOTAL_PICKS; p++) if (teamForPick(p) === state.slot) return p;
+  return null;
+}
+
+// Put my players into lineup slots, scarcest spot first, then flex, then bench
+function buildRoster() {
+  const open = SLOTS.map(s => ({ slot: s, player: null }));
+  const place = (pl, wanted) => {
+    for (const w of wanted) { const o = open.find(x => x.slot === w && !x.player); if (o) { o.player = pl; return true; } }
+    return false;
+  };
+  for (const pk of state.picks.filter(p => p.mine)) {
+    const pl = byId.get(pk.id);
+    if (!pl) continue;
+    const wanted = pl.k === "H"
+      ? [...HIT_ORDER.filter(x => pl.pos.includes(x)), "Util", "BN"]
+      : [...["SP", "RP"].filter(x => pl.pos.includes(x)), "P", "BN"];
+    place(pl, wanted);
+  }
+  return open;
+}
+function fitsNeed(pl, roster) {
+  const openSlots = new Set(roster.filter(o => !o.player && o.slot !== "BN").map(o => o.slot));
+  if (pl.k === "H") return pl.pos.some(x => openSlots.has(x)) || openSlots.has("Util");
+  return pl.pos.some(x => openSlots.has(x)) || openSlots.has("P");
+}
+
+function render() {
+  const taken = new Map(state.picks.map(p => [p.id, p.mine]));
+  const cur = state.picks.length + 1;
+  const done = cur > TOTAL_PICKS;
+  const onClock = !done && teamForPick(cur) === state.slot;
+
+  // Clock strip
+  document.getElementById("round").textContent = done ? ROUNDS : Math.ceil(cur / TEAMS);
+  document.getElementById("pick").textContent = done ? TOTAL_PICKS : cur;
+  const st = document.getElementById("status");
+  st.className = "status" + (onClock ? " up" : done ? " done" : "");
+  if (done) st.textContent = "Draft complete";
+  else if (onClock) st.textContent = "You're on the clock";
+  else {
+    const nx = nextMyPick(cur);
+    const away = nx - cur;
+    st.textContent = `Team ${teamForPick(cur)} picking · you're up in ${away} (pick ${nx})`;
+  }
+  document.getElementById("undo").disabled = !state.picks.length;
+  const rb = document.getElementById("reset");
+  rb.textContent = resetArmed ? "Click again to clear all picks" : "Reset draft";
+  rb.classList.toggle("danger", resetArmed);
+
+  // Board
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const hide = document.getElementById("hide").checked;
+  const rows = PLAYERS.filter(p => {
+    if (hide && taken.has(p.id)) return false;
+    if (filter === "Hitters" && p.k !== "H") return false;
+    if (filter === "Pitchers" && p.k !== "P") return false;
+    if (!["All", "Hitters", "Pitchers"].includes(filter) && !p.pos.includes(filter)) return false;
+    if (q && !(p.n.toLowerCase().includes(q) || p.t.toLowerCase() === q)) return false;
+    return true;
+  });
+  const tbody = document.getElementById("rows");
+  tbody.classList.toggle("up", onClock);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">No players match. Clear the search or pick another position.</td></tr>`;
+  } else {
+    tbody.innerHTML = rows.map((p, i) => {
+      const t = taken.get(p.id);
+      const cls = [t === true ? "mine" : t === false ? "off" : "", p.tier && i > 0 && !q ? "tier" : ""].join(" ");
+      const acts = taken.has(p.id)
+        ? `<button class="act undo" data-undo="${p.id}" type="button">Put back</button>`
+        : `<button class="act" data-take="${p.id}" type="button">Taken</button><button class="act mine-btn" data-mine="${p.id}" type="button">Mine</button>`;
+      return `<tr class="${cls}">
+        <td class="r num meta">${p.rank}</td>
+        <td><div class="name">${p.n}</div><div class="meta">${p.t} · age ${p.a}</div></td>
+        <td><span class="pos ${p.k === "P" ? "p" : ""}">${p.p}</span></td>
+        <td class="r num hide-sm">${p.pts.toLocaleString()}</td>
+        <td class="r num vor">${p.v.toFixed(1)}</td>
+        <td><div class="acts">${acts}</div></td>
+      </tr>`;
+    }).join("");
+  }
+
+  // My roster
+  const roster = buildRoster();
+  document.getElementById("roster").innerHTML = roster.map(o =>
+    `<div class="slot">${o.slot}</div>` +
+    (o.player ? `<div class="filled">${o.player.n} <span class="meta">${o.player.p}</span></div>`
+              : `<div class="open">Open</div>`)
+  ).join("");
+  const mine = state.picks.filter(p => p.mine).map(p => byId.get(p.id)).filter(Boolean);
+  document.getElementById("mycount").textContent = `${mine.length} of ${ROUNDS} drafted`;
+  document.getElementById("mypts").textContent = `${mine.reduce((a, p) => a + p.pts, 0).toLocaleString()} proj pts`;
+
+  // Best available
+  const avail = PLAYERS.filter(p => !taken.has(p.id)).slice(0, 8);
+  document.getElementById("best").innerHTML = avail.map(p =>
+    `<li><div><div class="name">${p.n}</div><div class="meta">${p.p} · ${p.t}${fitsNeed(p, roster) ? ' · <span class="fit">fills a need</span>' : ""}</div></div>
+     <span class="num vor">${p.v.toFixed(1)}</span>
+     <button class="act mine-btn" data-mine="${p.id}" type="button">Mine</button></li>`
+  ).join("") || `<li class="meta">Everyone's gone.</li>`;
+}
+
+// ---------- Wiring ----------
+const chipNames = ["All", "Hitters", "C", "1B", "2B", "3B", "SS", "OF", "Pitchers", "SP", "RP"];
+document.getElementById("chips").innerHTML = chipNames.map(c =>
+  `<button class="chip" type="button" data-chip="${c}" aria-pressed="${c === filter}">${c}</button>`).join("");
+document.getElementById("chips").addEventListener("click", e => {
+  const b = e.target.closest("[data-chip]"); if (!b) return;
+  filter = b.dataset.chip;
+  document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.chip === filter));
+  render();
+});
+
+const slotSel = document.getElementById("slot");
+slotSel.innerHTML = Array.from({ length: TEAMS }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
+slotSel.value = state.slot;
+slotSel.addEventListener("change", () => { state.slot = +slotSel.value; save(); render(); });
+
+document.body.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.take || b.dataset.mine) {
+    const id = b.dataset.take || b.dataset.mine;
+    if (!state.picks.some(p => p.id === id) && state.picks.length < TOTAL_PICKS) {
+      state.picks.push({ id, mine: !!b.dataset.mine });
+    }
+  } else if (b.dataset.undo) {
+    state.picks = state.picks.filter(p => p.id !== b.dataset.undo);
+  } else if (b.id === "undo") {
+    state.picks.pop();
+  } else if (b.id === "reset") {
+    if (resetArmed) { state.picks = []; resetArmed = false; }
+    else { resetArmed = true; setTimeout(() => { resetArmed = false; render(); }, 4000); }
+  } else return;
+  if (b.id !== "reset") resetArmed = false;
+  save(); render();
+});
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("hide").addEventListener("change", render);
+
+render();
+</script>

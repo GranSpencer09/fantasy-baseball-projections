@@ -1,0 +1,381 @@
+<title>2027 Draft Room</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky "on the clock" strip, then the big board with a narrow
+   war-room column (best available + my roster card) beside it. */
+:root {
+  --bg: #eef2ec;        /* chalked infield dirt gone pale */
+  --surface: #ffffff;
+  --ink: #16201a;
+  --muted: #5b685f;
+  --line: #d5ddd3;
+  --accent: #1d6a43;    /* grass */
+  --accent-soft: #e0eee5;
+  --stitch: #c4332b;    /* ball seam red: only for "you're up" */
+  --stitch-soft: #fbe7e5;
+  --taken: #a7b1aa;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1411; --surface: #151d18; --ink: #e5ece7; --muted: #8fa096; --line: #26322b;
+    --accent: #5dbb88; --accent-soft: #1a2f23; --stitch: #f0685d; --stitch-soft: #3a1d1b;
+    --taken: #4c5a51; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1411; --surface: #151d18; --ink: #e5ece7; --muted: #8fa096; --line: #26322b;
+  --accent: #5dbb88; --accent-soft: #1a2f23; --stitch: #f0685d; --stitch-soft: #3a1d1b;
+  --taken: #4c5a51; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px;
+  line-height: 1.45; margin: 0;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+
+/* ---------- Clock strip ---------- */
+.clock {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.clock-inner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px;
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: 1280px; margin: 0 auto;
+}
+.mark { font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; margin: 0; }
+.mark span { color: var(--accent); }
+.pickbox { display: flex; align-items: baseline; gap: 8px; }
+.pickbox .lbl { font-family: var(--f-display); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--muted); }
+.pickbox .val { font-family: var(--f-data); font-size: 18px; font-weight: 500; }
+.status {
+  font-family: var(--f-display); font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  font-size: 15px; padding: 4px 10px; border-radius: 3px; background: var(--accent-soft); color: var(--accent);
+}
+.status.up { background: var(--stitch); color: #fff; }
+.status.done { background: var(--line); color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; }
+.controls label { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.controls select { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+.btn { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; font-size: 13px; }
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.danger { color: var(--stitch); border-color: var(--stitch); }
+
+/* ---------- Main layout ---------- */
+.wrap {
+  max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (max-width: 900px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); }
+  .side { order: -1; }
+}
+h2 { font-family: var(--f-display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 15px; margin: 0 0 8px; color: var(--muted); }
+
+/* ---------- Filters ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-spacing: .04em;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 3px; padding: 3px 9px; min-width: 34px;
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.search { flex: 1 1 180px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; }
+.toggle { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+
+/* ---------- Board table ---------- */
+.board-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  font-family: var(--f-display); font-weight: 600; text-transform: uppercase; letter-spacing: .07em;
+  font-size: 12px; color: var(--muted); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: var(--surface);
+}
+td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th.r, td.r { text-align: right; }
+tr.tier td { border-top: 2px solid var(--ink); }
+.name { font-weight: 600; }
+.meta { font-size: 12px; color: var(--muted); }
+.pos { font-family: var(--f-display); font-weight: 600; letter-spacing: .04em; font-size: 14px; }
+.pos.p { color: var(--accent); }
+.vor { font-weight: 500; }
+tr.off td { color: var(--taken); }
+tr.off .name { text-decoration: line-through; font-weight: 400; }
+tr.mine td { background: var(--accent-soft); }
+tr.mine .name { text-decoration: none; color: var(--accent); font-weight: 600; }
+.acts { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; }
+.act { border: 1px solid var(--line); background: var(--bg); border-radius: 3px; font-size: 12px; padding: 3px 8px; }
+.act.mine-btn { border-color: var(--accent); color: var(--accent); }
+.up .act.mine-btn { background: var(--stitch); border-color: var(--stitch); color: #fff; }
+.act.undo { color: var(--muted); }
+.empty { padding: 24px; text-align: center; color: var(--muted); }
+@media (max-width: 560px) {
+  .hide-sm { display: none; }
+  td, th { padding: 7px 6px; }
+}
+
+/* ---------- Sidebar ---------- */
+.side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 14px; }
+.best { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.best li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.best li:last-child { border-bottom: 0; }
+.fit { font-family: var(--f-display); font-weight: 600; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }
+.roster { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 0; font-size: 13px; }
+.roster div { padding: 5px 0; border-bottom: 1px solid var(--line); }
+.roster .slot { font-family: var(--f-display); font-weight: 600; letter-spacing: .05em; color: var(--muted); }
+.roster .open { color: var(--muted); font-style: italic; }
+.roster .filled { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.totals { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+@media (prefers-reduced-motion: no-preference) { tr { transition: background-color .15s; } }
+</style>
+
+<header class="clock">
+  <div class="clock-inner">
+    <h1 class="mark">Draft <span>Room</span></h1>
+    <div class="pickbox"><span class="lbl">Round</span><span class="val" id="round">1</span></div>
+    <div class="pickbox"><span class="lbl">Pick</span><span class="val" id="pick">1</span></div>
+    <div class="status" id="status">On the clock</div>
+    <div class="controls">
+      <label for="slot">My slot
+        <select id="slot"></select>
+      </label>
+      <button class="btn" id="undo" type="button">Undo last pick</button>
+      <button class="btn" id="reset" type="button">Reset draft</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="boardcol" aria-label="Player board">
+    <div class="filters">
+      <div class="chips" id="chips" role="group" aria-label="Filter by position"></div>
+      <input class="search" id="search" type="search" placeholder="Search players or teams" autocomplete="off">
+      <label class="toggle" for="hide"><input type="checkbox" id="hide" checked> Hide drafted</label>
+    </div>
+    <div class="board-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="r">#</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="r hide-sm">Proj pts</th>
+            <th class="r">Value</th>
+            <th class="r"><span class="hide-sm">Mark</span></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:10px">Value is projected points above the best player left on waivers at that position. A thick line marks a tier break: a drop of 9+ value from the player above.</p>
+  </section>
+
+  <aside class="side">
+    <div class="panel">
+      <h2>Best available</h2>
+      <ol class="best" id="best"></ol>
+    </div>
+    <div class="panel">
+      <h2>My roster</h2>
+      <div class="roster" id="roster"></div>
+      <div class="totals"><span id="mycount">0 drafted</span><span id="mypts" class="num">0 proj pts</span></div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const PLAYERS = [{"id": "H660271", "n": "Shohei Ohtani", "t": "LAD", "k": "H", "p": "Util", "a": 32, "pts": 1367, "v": 426.6}, {"id": "H691718", "n": "Pete Crow-Armstrong", "t": "CHC", "k": "H", "p": "OF", "a": 25, "pts": 1352, "v": 413.5}, {"id": "H656941", "n": "Kyle Schwarber", "t": "PHI", "k": "H", "p": "1B", "a": 34, "pts": 1294, "v": 367.1}, {"id": "P694819", "n": "Jacob Misiorowski", "t": "MIL", "k": "P", "p": "SP", "a": 25, "pts": 821, "v": 366.8}, {"id": "H665487", "n": "Fernando Tatis Jr.", "t": "SD", "k": "H", "p": "2B/OF", "a": 28, "pts": 1276, "v": 341.4}, {"id": "H677951", "n": "Bobby Witt Jr.", "t": "KC", "k": "H", "p": "SS", "a": 27, "pts": 1274, "v": 334.0}, {"id": "H624413", "n": "Pete Alonso", "t": "BAL", "k": "H", "p": "1B", "a": 32, "pts": 1250, "v": 322.3}, {"id": "H691406", "n": "Junior Caminero", "t": "TB", "k": "H", "p": "3B", "a": 23, "pts": 1253, "v": 314.1}, {"id": "H682998", "n": "Corbin Carroll", "t": "ARI", "k": "H", "p": "OF", "a": 26, "pts": 1251, "v": 313.1}, {"id": "H682829", "n": "Elly De La Cruz", "t": "CIN", "k": "H", "p": "SS", "a": 25, "pts": 1251, "v": 310.5}, {"id": "P669373", "n": "Tarik Skubal", "t": "LAD", "k": "P", "p": "SP", "a": 30, "pts": 757, "v": 302.6}, {"id": "P694973", "n": "Paul Skenes", "t": "PIT", "k": "P", "p": "SP", "a": 25, "pts": 752, "v": 297.2}, {"id": "P650911", "n": "Cristopher Sánchez", "t": "PHI", "k": "P", "p": "SP", "a": 30, "pts": 750, "v": 295.4}, {"id": "H695578", "n": "James Wood", "t": "WSH", "k": "H", "p": "OF", "a": 24, "pts": 1232, "v": 293.4}, {"id": "P693645", "n": "Cam Schlittler", "t": "NYY", "k": "P", "p": "SP", "a": 26, "pts": 746, "v": 290.9}, {"id": "P808967", "n": "Yoshinobu Yamamoto", "t": "LAD", "k": "P", "p": "SP", "a": 28, "pts": 734, "v": 279.8}, {"id": "H670541", "n": "Yordan Alvarez", "t": "HOU", "k": "H", "p": "OF", "a": 30, "pts": 1214, "v": 276.4}, {"id": "P666200", "n": "Jesús Luzardo", "t": "PHI", "k": "P", "p": "SP", "a": 29, "pts": 728, "v": 273.6}, {"id": "P656302", "n": "Dylan Cease", "t": "TOR", "k": "P", "p": "SP", "a": 31, "pts": 724, "v": 269.6}, {"id": "P554430", "n": "Zack Wheeler", "t": "PHI", "k": "P", "p": "SP", "a": 37, "pts": 716, "v": 261.8}, {"id": "P519242", "n": "Chris Sale", "t": "ATL", "k": "P", "p": "SP", "a": 38, "pts": 710, "v": 255.1}, {"id": "H700250", "n": "Ben Rice", "t": "NYY", "k": "H", "p": "1B", "a": 28, "pts": 1180, "v": 252.9}, {"id": "H547180", "n": "Bryce Harper", "t": "PHI", "k": "H", "p": "1B/OF", "a": 34, "pts": 1174, "v": 247.1}, {"id": "H665742", "n": "Juan Soto", "t": "NYM", "k": "H", "p": "OF", "a": 28, "pts": 1180, "v": 242.2}, {"id": "H682928", "n": "CJ Abrams", "t": "WSH", "k": "H", "p": "SS/2B", "a": 26, "pts": 1176, "v": 241.2}, {"id": "P668909", "n": "Gavin Williams", "t": "CLE", "k": "P", "p": "SP", "a": 27, "pts": 695, "v": 240.1}, {"id": "H687263", "n": "Zach Neto", "t": "LAA", "k": "H", "p": "SS", "a": 26, "pts": 1180, "v": 239.3}, {"id": "H621566", "n": "Matt Olson", "t": "ATL", "k": "H", "p": "1B", "a": 33, "pts": 1162, "v": 234.3}, {"id": "P695243", "n": "Mason Miller", "t": "SD", "k": "P", "p": "RP", "a": 28, "pts": 614, "v": 233.6}, {"id": "P669302", "n": "Logan Gilbert", "t": "SEA", "k": "P", "p": "SP", "a": 30, "pts": 686, "v": 231.8}, {"id": "H683002", "n": "Gunnar Henderson", "t": "BAL", "k": "H", "p": "SS", "a": 26, "pts": 1172, "v": 231.7}, {"id": "H646240", "n": "Rafael Devers", "t": "SF", "k": "H", "p": "1B", "a": 30, "pts": 1156, "v": 229.0}, {"id": "H671056", "n": "Iván Herrera", "t": "STL", "k": "H", "p": "C", "a": 27, "pts": 1097, "v": 228.8}, {"id": "H678246", "n": "Miguel Vargas", "t": "CWS", "k": "H", "p": "3B/1B", "a": 27, "pts": 1154, "v": 227.2}, {"id": "H668930", "n": "Brice Turang", "t": "MIL", "k": "H", "p": "2B", "a": 27, "pts": 1159, "v": 224.4}, {"id": "H668227", "n": "Randy Arozarena", "t": "SEA", "k": "H", "p": "OF", "a": 32, "pts": 1152, "v": 214.2}, {"id": "P693433", "n": "Bryan Woo", "t": "SEA", "k": "P", "p": "SP", "a": 27, "pts": 668, "v": 213.8}, {"id": "P671922", "n": "Cade Smith", "t": "CLE", "k": "P", "p": "RP", "a": 28, "pts": 593, "v": 212.9}, {"id": "H701538", "n": "Jackson Merrill", "t": "SD", "k": "H", "p": "OF", "a": 24, "pts": 1146, "v": 207.8}, {"id": "H677594", "n": "Julio Rodríguez", "t": "SEA", "k": "H", "p": "OF", "a": 26, "pts": 1139, "v": 200.7}, {"id": "P672282", "n": "Reid Detmers", "t": "LAA", "k": "P", "p": "SP", "a": 27, "pts": 641, "v": 186.3}, {"id": "P594798", "n": "Jacob deGrom", "t": "TEX", "k": "P", "p": "SP", "a": 39, "pts": 638, "v": 183.5}, {"id": "H686948", "n": "Drake Baldwin", "t": "ATL", "k": "H", "p": "C", "a": 26, "pts": 1050, "v": 181.4}, {"id": "H683737", "n": "Michael Busch", "t": "CHC", "k": "H", "p": "1B", "a": 29, "pts": 1108, "v": 180.5}, {"id": "H661388", "n": "William Contreras", "t": "MIL", "k": "H", "p": "C", "a": 29, "pts": 1049, "v": 180.5}, {"id": "H663656", "n": "Kyle Tucker", "t": "LAD", "k": "H", "p": "OF", "a": 30, "pts": 1118, "v": 180.4}, {"id": "P695505", "n": "Chase Burns", "t": "CIN", "k": "P", "p": "SP", "a": 24, "pts": 634, "v": 179.4}, {"id": "H663728", "n": "Cal Raleigh", "t": "SEA", "k": "H", "p": "C", "a": 30, "pts": 1043, "v": 175.3}, {"id": "P800048", "n": "Parker Messick", "t": "CLE", "k": "P", "p": "SP", "a": 26, "pts": 626, "v": 171.9}, {"id": "P656876", "n": "Drew Rasmussen", "t": "TB", "k": "P", "p": "SP", "a": 31, "pts": 626, "v": 171.3}, {"id": "H672695", "n": "Geraldo Perdomo", "t": "ARI", "k": "H", "p": "SS", "a": 27, "pts": 1111, "v": 170.9}, {"id": "H701398", "n": "Sal Stewart", "t": "CIN", "k": "H", "p": "2B/3B/1B", "a": 23, "pts": 1097, "v": 169.4}, {"id": "H606466", "n": "Ketel Marte", "t": "ARI", "k": "H", "p": "2B", "a": 33, "pts": 1102, "v": 167.3}, {"id": "H676475", "n": "Alec Burleson", "t": "STL", "k": "H", "p": "1B", "a": 28, "pts": 1094, "v": 166.8}, {"id": "H592518", "n": "Manny Machado", "t": "SD", "k": "H", "p": "3B", "a": 34, "pts": 1106, "v": 166.6}, {"id": "P690997", "n": "Nolan McLean", "t": "NYM", "k": "P", "p": "SP", "a": 25, "pts": 620, "v": 165.1}, {"id": "H696100", "n": "Hunter Goodman", "t": "COL", "k": "H", "p": "C", "a": 27, "pts": 1028, "v": 160.4}, {"id": "H673548", "n": "Seiya Suzuki", "t": "CHC", "k": "H", "p": "OF", "a": 32, "pts": 1097, "v": 159.2}, {"id": "H694192", "n": "Jackson Chourio", "t": "MIL", "k": "H", "p": "OF", "a": 23, "pts": 1095, "v": 156.9}, {"id": "H608070", "n": "José Ramírez", "t": "CLE", "k": "H", "p": "3B", "a": 34, "pts": 1096, "v": 156.6}, {"id": "H664040", "n": "Brandon Lowe", "t": "PIT", "k": "H", "p": "2B", "a": 32, "pts": 1084, "v": 149.0}, {"id": "P543243", "n": "Sonny Gray", "t": "BOS", "k": "P", "p": "SP", "a": 37, "pts": 602, "v": 147.1}, {"id": "H668804", "n": "Bryan Reynolds", "t": "PIT", "k": "H", "p": "OF", "a": 32, "pts": 1082, "v": 144.4}, {"id": "H682985", "n": "Riley Greene", "t": "DET", "k": "H", "p": "OF", "a": 26, "pts": 1082, "v": 143.4}, {"id": "H518692", "n": "Freddie Freeman", "t": "LAD", "k": "H", "p": "1B", "a": 37, "pts": 1068, "v": 141.3}, {"id": "H666176", "n": "Jo Adell", "t": "CLE", "k": "H", "p": "OF", "a": 28, "pts": 1077, "v": 139.3}, {"id": "P642547", "n": "Freddy Peralta", "t": "TB", "k": "P", "p": "SP", "a": 31, "pts": 594, "v": 138.9}, {"id": "P670280", "n": "David Bednar", "t": "NYY", "k": "P", "p": "RP", "a": 32, "pts": 519, "v": 138.3}, {"id": "H607208", "n": "Trea Turner", "t": "PHI", "k": "H", "p": "SS", "a": 34, "pts": 1078, "v": 138.1}, {"id": "P671737", "n": "Taj Bradley", "t": "MIN", "k": "P", "p": "SP", "a": 26, "pts": 593, "v": 138.0}, {"id": "P677952", "n": "Braxton Ashcraft", "t": "PIT", "k": "P", "p": "SP", "a": 27, "pts": 592, "v": 137.0}, {"id": "H677800", "n": "Wilyer Abreu", "t": "BOS", "k": "H", "p": "OF", "a": 28, "pts": 1075, "v": 136.7}, {"id": "H665489", "n": "Vladimir Guerrero Jr.", "t": "TOR", "k": "H", "p": "1B", "a": 28, "pts": 1064, "v": 136.6}, {"id": "P657746", "n": "Joe Ryan", "t": "MIN", "k": "P", "p": "SP", "a": 31, "pts": 590, "v": 135.4}, {"id": "H672640", "n": "Otto Lopez", "t": "MIA", "k": "H", "p": "SS", "a": 28, "pts": 1072, "v": 131.9}, {"id": "H545361", "n": "Mike Trout", "t": "LAA", "k": "H", "p": "OF", "a": 35, "pts": 1067, "v": 129.0}, {"id": "H647304", "n": "Josh Naylor", "t": "SEA", "k": "H", "p": "1B", "a": 30, "pts": 1053, "v": 125.4}, {"id": "P547973", "n": "Aroldis Chapman", "t": "BOS", "k": "P", "p": "RP", "a": 39, "pts": 503, "v": 122.2}, {"id": "P661395", "n": "Jhoan Duran", "t": "PHI", "k": "P", "p": "RP", "a": 29, "pts": 502, "v": 121.3}, {"id": "H695734", "n": "Daylen Lile", "t": "WSH", "k": "H", "p": "OF", "a": 24, "pts": 1059, "v": 120.9}, {"id": "P801139", "n": "Payton Tolle", "t": "BOS", "k": "P", "p": "SP", "a": 24, "pts": 574, "v": 118.9}, {"id": "H650490", "n": "Yandy Díaz", "t": "TB", "k": "H", "p": "1B", "a": 35, "pts": 1046, "v": 118.6}, {"id": "P684007", "n": "Shota Imanaga", "t": "CHC", "k": "P", "p": "SP", "a": 33, "pts": 573, "v": 118.2}, {"id": "H608324", "n": "Alex Bregman", "t": "CHC", "k": "H", "p": "3B", "a": 33, "pts": 1057, "v": 118.0}, {"id": "P676917", "n": "Cade Cavalli", "t": "WSH", "k": "P", "p": "SP", "a": 28, "pts": 569, "v": 114.5}, {"id": "H664023", "n": "Ian Happ", "t": "CHC", "k": "H", "p": "OF", "a": 32, "pts": 1050, "v": 111.4}, {"id": "H691023", "n": "Jordan Walker", "t": "STL", "k": "H", "p": "OF", "a": 25, "pts": 1049, "v": 111.0}, {"id": "P662253", "n": "Andrés Muñoz", "t": "SEA", "k": "P", "p": "RP", "a": 28, "pts": 490, "v": 109.9}, {"id": "P691587", "n": "Eury Pérez", "t": "MIA", "k": "P", "p": "SP", "a": 24, "pts": 564, "v": 109.0}, {"id": "H671739", "n": "Michael Harris II", "t": "ATL", "k": "H", "p": "OF", "a": 26, "pts": 1046, "v": 107.8}, {"id": "H666018", "n": "Jonathan Aranda", "t": "TB", "k": "H", "p": "1B", "a": 29, "pts": 1033, "v": 106.1}, {"id": "H680776", "n": "Jarren Duran", "t": "BOS", "k": "H", "p": "OF", "a": 30, "pts": 1043, "v": 105.0}, {"id": "P680732", "n": "Sean Burke", "t": "CWS", "k": "P", "p": "SP", "a": 27, "pts": 559, "v": 104.4}, {"id": "P643377", "n": "Griffin Jax", "t": "TB", "k": "P", "p": "SP/RP", "a": 32, "pts": 484, "v": 104.0}, {"id": "P592332", "n": "Kevin Gausman", "t": "CHC", "k": "P", "p": "SP", "a": 36, "pts": 558, "v": 103.9}, {"id": "H693307", "n": "Dillon Dingler", "t": "DET", "k": "H", "p": "C", "a": 28, "pts": 970, "v": 101.6}, {"id": "H521692", "n": "Salvador Perez", "t": "KC", "k": "H", "p": "C/1B", "a": 37, "pts": 970, "v": 101.4}, {"id": "H805808", "n": "Kevin McGonigle", "t": "DET", "k": "H", "p": "SS/3B", "a": 22, "pts": 1039, "v": 100.2}, {"id": "H695600", "n": "Carter Jensen", "t": "KC", "k": "H", "p": "C", "a": 23, "pts": 960, "v": 92.0}, {"id": "P676282", "n": "Joey Cantillo", "t": "CLE", "k": "P", "p": "SP", "a": 27, "pts": 546, "v": 91.7}, {"id": "H666182", "n": "Bo Bichette", "t": "NYM", "k": "H", "p": "SS/3B", "a": 29, "pts": 1027, "v": 88.2}, {"id": "H663538", "n": "Nico Hoerner", "t": "CHC", "k": "H", "p": "SS/2B", "a": 30, "pts": 1021, "v": 86.6}, {"id": "H665862", "n": "Jazz Chisholm Jr.", "t": "NYY", "k": "H", "p": "2B", "a": 29, "pts": 1021, "v": 86.4}, {"id": "H607043", "n": "Brandon Nimmo", "t": "TEX", "k": "H", "p": "OF", "a": 34, "pts": 1024, "v": 85.7}, {"id": "P686613", "n": "Hunter Brown", "t": "HOU", "k": "P", "p": "SP", "a": 28, "pts": 539, "v": 84.5}, {"id": "P686973", "n": "Louis Varland", "t": "TOR", "k": "P", "p": "RP", "a": 29, "pts": 462, "v": 81.5}, {"id": "P623352", "n": "Josh Hader", "t": "HOU", "k": "P", "p": "RP", "a": 33, "pts": 461, "v": 80.7}, {"id": "H681624", "n": "Andy Pages", "t": "LAD", "k": "H", "p": "OF", "a": 26, "pts": 1018, "v": 80.0}, {"id": "P657277", "n": "Logan Webb", "t": "SF", "k": "P", "p": "SP", "a": 30, "pts": 534, "v": 79.7}, {"id": "H701762", "n": "Nick Kurtz", "t": "ATH", "k": "H", "p": "1B", "a": 24, "pts": 1006, "v": 78.3}, {"id": "P669022", "n": "MacKenzie Gore", "t": "TEX", "k": "P", "p": "SP", "a": 28, "pts": 532, "v": 77.9}, {"id": "P628452", "n": "Raisel Iglesias", "t": "ATL", "k": "P", "p": "RP", "a": 37, "pts": 457, "v": 76.4}, {"id": "P656730", "n": "Trevor Megill", "t": "MIL", "k": "P", "p": "RP", "a": 33, "pts": 456, "v": 75.8}, {"id": "P543135", "n": "Nathan Eovaldi", "t": "TEX", "k": "P", "p": "SP", "a": 37, "pts": 530, "v": 75.6}, {"id": "P676440", "n": "Tanner Bibee", "t": "CLE", "k": "P", "p": "SP", "a": 28, "pts": 530, "v": 75.0}, {"id": "P656641", "n": "Jacob Latz", "t": "TEX", "k": "P", "p": "RP", "a": 31, "pts": 452, "v": 71.9}, {"id": "P650633", "n": "Michael King", "t": "SD", "k": "P", "p": "SP", "a": 32, "pts": 526, "v": 71.7}, {"id": "P624133", "n": "Ranger Suarez", "t": "BOS", "k": "P", "p": "SP", "a": 31, "pts": 525, "v": 70.3}, {"id": "H641343", "n": "Jake Bauers", "t": "MIL", "k": "H", "p": "1B/OF", "a": 31, "pts": 997, "v": 69.5}, {"id": "P669923", "n": "George Kirby", "t": "SEA", "k": "P", "p": "SP", "a": 29, "pts": 524, "v": 69.2}, {"id": "H572233", "n": "Christian Walker", "t": "HOU", "k": "H", "p": "1B", "a": 36, "pts": 995, "v": 67.6}, {"id": "H672515", "n": "Gabriel Moreno", "t": "ARI", "k": "H", "p": "C", "a": 27, "pts": 934, "v": 66.3}, {"id": "H671277", "n": "Luis García Jr.", "t": "NYY", "k": "H", "p": "1B", "a": 27, "pts": 993, "v": 66.2}, {"id": "P702070", "n": "Noah Cameron", "t": "KC", "k": "P", "p": "SP", "a": 27, "pts": 520, "v": 65.2}, {"id": "H679529", "n": "Spencer Torkelson", "t": "DET", "k": "H", "p": "1B", "a": 27, "pts": 992, "v": 64.3}, {"id": "P669432", "n": "Trevor Rogers", "t": "BAL", "k": "P", "p": "SP", "a": 29, "pts": 519, "v": 64.0}, {"id": "H681082", "n": "Bryson Stott", "t": "PHI", "k": "H", "p": "2B/3B", "a": 29, "pts": 997, "v": 62.4}, {"id": "P641329", "n": "Bryan Baker", "t": "TB", "k": "P", "p": "RP", "a": 32, "pts": 443, "v": 62.3}, {"id": "P640455", "n": "Sean Manaea", "t": "NYM", "k": "P", "p": "SP/RP", "a": 35, "pts": 442, "v": 61.8}, {"id": "H575929", "n": "Willson Contreras", "t": "BOS", "k": "H", "p": "1B", "a": 35, "pts": 989, "v": 61.4}, {"id": "P667755", "n": "José Soriano", "t": "TOR", "k": "P", "p": "SP", "a": 28, "pts": 515, "v": 60.7}, {"id": "H670623", "n": "Isaac Paredes", "t": "HOU", "k": "H", "p": "3B/1B", "a": 28, "pts": 986, "v": 59.3}, {"id": "P664285", "n": "Framber Valdez", "t": "DET", "k": "P", "p": "SP", "a": 33, "pts": 513, "v": 58.0}, {"id": "H571970", "n": "Max Muncy", "t": "LAD", "k": "H", "p": "3B", "a": 36, "pts": 996, "v": 57.3}, {"id": "P669358", "n": "Shane Baz", "t": "BAL", "k": "P", "p": "SP", "a": 28, "pts": 509, "v": 54.2}, {"id": "P608379", "n": "Michael Wacha", "t": "KC", "k": "P", "p": "SP", "a": 35, "pts": 509, "v": 54.0}, {"id": "H592450", "n": "Aaron Judge", "t": "NYY", "k": "H", "p": "OF", "a": 35, "pts": 991, "v": 52.9}, {"id": "H641355", "n": "Cody Bellinger", "t": "NYY", "k": "H", "p": "OF", "a": 31, "pts": 990, "v": 51.5}, {"id": "P592662", "n": "Robbie Ray", "t": "SD", "k": "P", "p": "SP", "a": 35, "pts": 506, "v": 51.5}, {"id": "H695657", "n": "Colson Montgomery", "t": "CWS", "k": "H", "p": "SS/3B", "a": 25, "pts": 988, "v": 49.5}, {"id": "P701656", "n": "Logan Henderson", "t": "MIL", "k": "P", "p": "SP", "a": 25, "pts": 502, "v": 47.2}, {"id": "P701542", "n": "Will Warren", "t": "NYY", "k": "P", "p": "SP", "a": 28, "pts": 502, "v": 47.2}, {"id": "P608331", "n": "Max Fried", "t": "NYY", "k": "P", "p": "SP", "a": 33, "pts": 501, "v": 46.5}, {"id": "P645261", "n": "Sandy Alcantara", "t": "MIA", "k": "P", "p": "SP", "a": 31, "pts": 499, "v": 44.8}, {"id": "P605400", "n": "Aaron Nola", "t": "PHI", "k": "P", "p": "SP", "a": 34, "pts": 496, "v": 41.1}, {"id": "H596019", "n": "Francisco Lindor", "t": "NYM", "k": "H", "p": "SS", "a": 33, "pts": 981, "v": 40.7}, {"id": "P686218", "n": "Emmet Sheehan", "t": "LAD", "k": "P", "p": "SP", "a": 27, "pts": 495, "v": 40.5}, {"id": "H605137", "n": "Josh Bell", "t": "MIN", "k": "H", "p": "1B", "a": 34, "pts": 965, "v": 37.6}, {"id": "P694297", "n": "Brandon Pfaadt", "t": "ARI", "k": "P", "p": "SP/RP", "a": 28, "pts": 418, "v": 37.2}, {"id": "H665019", "n": "Kody Clemens", "t": "MIN", "k": "H", "p": "2B/1B/OF", "a": 31, "pts": 964, "v": 36.8}, {"id": "H621493", "n": "Taylor Ward", "t": "SEA", "k": "H", "p": "OF", "a": 33, "pts": 975, "v": 36.7}, {"id": "P675660", "n": "Shane Drohan", "t": "MIL", "k": "P", "p": "SP/RP", "a": 28, "pts": 417, "v": 36.4}, {"id": "H645277", "n": "Ozzie Albies", "t": "ATL", "k": "H", "p": "2B", "a": 30, "pts": 970, "v": 35.0}, {"id": "H701807", "n": "Carson Benge", "t": "NYM", "k": "H", "p": "OF", "a": 24, "pts": 972, "v": 34.4}, {"id": "H671732", "n": "Lawrence Butler", "t": "ATH", "k": "H", "p": "OF", "a": 26, "pts": 972, "v": 33.9}, {"id": "H669127", "n": "Shea Langeliers", "t": "ATH", "k": "H", "p": "C", "a": 29, "pts": 902, "v": 33.6}, {"id": "H807712", "n": "Luke Keaschall", "t": "MIN", "k": "H", "p": "2B/OF", "a": 24, "pts": 967, "v": 32.8}, {"id": "P676617", "n": "Riley O'Brien", "t": "STL", "k": "P", "p": "RP", "a": 32, "pts": 412, "v": 31.6}, {"id": "P700712", "n": "Walbert Ureña", "t": "LAA", "k": "P", "p": "SP", "a": 23, "pts": 486, "v": 31.1}, {"id": "P593958", "n": "Eduardo Rodriguez", "t": "ARI", "k": "P", "p": "SP", "a": 34, "pts": 482, "v": 27.0}, {"id": "P691799", "n": "Grant Taylor", "t": "CWS", "k": "P", "p": "RP", "a": 25, "pts": 407, "v": 26.2}, {"id": "H669394", "n": "Jake Burger", "t": "TEX", "k": "H", "p": "1B", "a": 31, "pts": 952, "v": 24.5}, {"id": "H605141", "n": "Mookie Betts", "t": "LAD", "k": "H", "p": "SS", "a": 34, "pts": 963, "v": 22.5}, {"id": "P680736", "n": "Justin Wrobleski", "t": "LAD", "k": "P", "p": "SP", "a": 26, "pts": 476, "v": 21.3}, {"id": "P641941", "n": "Emilio Pagán", "t": "CIN", "k": "P", "p": "RP", "a": 36, "pts": 402, "v": 21.2}, {"id": "P656492", "n": "Foster Griffin", "t": "CLE", "k": "P", "p": "SP", "a": 31, "pts": 474, "v": 19.4}, {"id": "P607074", "n": "Carlos Rodón", "t": "NYY", "k": "P", "p": "SP", "a": 34, "pts": 472, "v": 17.7}, {"id": "H664761", "n": "Alec Bohm", "t": "PHI", "k": "H", "p": "3B/1B", "a": 30, "pts": 944, "v": 17.3}, {"id": "H660670", "n": "Ronald Acuña Jr.", "t": "ATL", "k": "H", "p": "OF", "a": 29, "pts": 955, "v": 17.0}, {"id": "H805300", "n": "Jakob Marsee", "t": "MIA", "k": "H", "p": "OF", "a": 26, "pts": 955, "v": 16.9}, {"id": "P607259", "n": "Nick Martinez", "t": "TB", "k": "P", "p": "SP", "a": 36, "pts": 469, "v": 14.7}, {"id": "P656945", "n": "Tanner Scott", "t": "LAD", "k": "P", "p": "RP", "a": 32, "pts": 395, "v": 14.1}, {"id": "H680757", "n": "Steven Kwan", "t": "CLE", "k": "H", "p": "OF", "a": 29, "pts": 950, "v": 11.4}, {"id": "H543807", "n": "George Springer", "t": "TOR", "k": "H", "p": "OF", "a": 37, "pts": 946, "v": 8.2}, {"id": "H678882", "n": "Ceddanne Rafaela", "t": "BOS", "k": "H", "p": "OF", "a": 26, "pts": 946, "v": 8.0}, {"id": "H592885", "n": "Christian Yelich", "t": "MIL", "k": "H", "p": "OF", "a": 35, "pts": 946, "v": 7.4}, {"id": "H664983", "n": "Jake McCarthy", "t": "COL", "k": "H", "p": "OF", "a": 29, "pts": 945, "v": 7.1}, {"id": "P694738", "n": "Landen Roupp", "t": "SF", "k": "P", "p": "SP", "a": 28, "pts": 461, "v": 6.0}, {"id": "H663586", "n": "Austin Riley", "t": "ATL", "k": "H", "p": "3B", "a": 30, "pts": 944, "v": 4.6}, {"id": "P671096", "n": "Andrew Abbott", "t": "CIN", "k": "P", "p": "SP", "a": 28, "pts": 458, "v": 2.9}, {"id": "H689414", "n": "Liam Hicks", "t": "TB", "k": "H", "p": "C/1B", "a": 28, "pts": 868, "v": 0.0}, {"id": "P607192", "n": "Tyler Glasnow", "t": "LAD", "k": "P", "p": "SP", "a": 33, "pts": 455, "v": 0.0}, {"id": "H665833", "n": "Oneil Cruz", "t": "PIT", "k": "H", "p": "OF", "a": 28, "pts": 938, "v": 0.0}, {"id": "H642715", "n": "Willy Adames", "t": "SF", "k": "H", "p": "SS", "a": 31, "pts": 940, "v": 0.0}, {"id": "H553993", "n": "Eugenio Suárez", "t": "CIN", "k": "H", "p": "3B", "a": 35, "pts": 939, "v": 0.0}, {"id": "H808959", "n": "Munetaka Murakami", "t": "CWS", "k": "H", "p": "1B", "a": 27, "pts": 927, "v": 0.0}, {"id": "H669364", "n": "Xavier Edwards", "t": "MIA", "k": "H", "p": "2B", "a": 27, "pts": 935, "v": 0.0}, {"id": "P656546", "n": "Jeff Hoffman", "t": "MIN", "k": "P", "p": "RP", "a": 34, "pts": 380, "v": 0.0}, {"id": "H694671", "n": "Wyatt Langford", "t": "TEX", "k": "H", "p": "OF", "a": 25, "pts": 936, "v": -1.9}, {"id": "P682254", "n": "Mason Montgomery", "t": "PIT", "k": "P", "p": "SP/RP", "a": 27, "pts": 379, "v": -1.9}, {"id": "H695506", "n": "Jac Caglianone", "t": "KC", "k": "H", "p": "1B/OF", "a": 24, "pts": 925, "v": -2.2}, {"id": "H672960", "n": "Kazuma Okamoto", "t": "TOR", "k": "H", "p": "3B/1B", "a": 31, "pts": 923, "v": -3.8}, {"id": "P690986", "n": "Kyle Harrison", "t": "MIL", "k": "P", "p": "SP", "a": 25, "pts": 451, "v": -4.0}, {"id": "H686469", "n": "Vinnie Pasquantino", "t": "KC", "k": "H", "p": "1B", "a": 29, "pts": 921, "v": -5.9}, {"id": "H663757", "n": "Trent Grisham", "t": "NYY", "k": "H", "p": "OF", "a": 30, "pts": 930, "v": -8.6}, {"id": "H593428", "n": "Xander Bogaerts", "t": "SD", "k": "H", "p": "SS", "a": 34, "pts": 932, "v": -8.6}, {"id": "H702332", "n": "Caleb Durbin", "t": "BOS", "k": "H", "p": "3B", "a": 27, "pts": 930, "v": -9.0}, {"id": "P696149", "n": "Bubba Chandler", "t": "PIT", "k": "P", "p": "SP", "a": 24, "pts": 445, "v": -9.9}, {"id": "P680694", "n": "Kyle Bradish", "t": "BAL", "k": "P", "p": "SP", "a": 30, "pts": 445, "v": -10.0}, {"id": "H621439", "n": "Byron Buxton", "t": "MIN", "k": "H", "p": "OF", "a": 33, "pts": 928, "v": -10.4}, {"id": "P543037", "n": "Gerrit Cole", "t": "NYY", "k": "P", "p": "SP", "a": 36, "pts": 444, "v": -10.8}, {"id": "P607067", "n": "Colin Rea", "t": "CHC", "k": "P", "p": "SP/RP", "a": 36, "pts": 370, "v": -10.8}, {"id": "H669065", "n": "Kyle Stowers", "t": "MIA", "k": "H", "p": "1B/OF", "a": 29, "pts": 916, "v": -11.0}, {"id": "H621020", "n": "Dansby Swanson", "t": "CHC", "k": "H", "p": "SS", "a": 33, "pts": 929, "v": -11.5}, {"id": "P676979", "n": "Garrett Crochet", "t": "BOS", "k": "P", "p": "SP", "a": 28, "pts": 442, "v": -12.5}, {"id": "P676879", "n": "Aaron Ashby", "t": "MIL", "k": "P", "p": "RP", "a": 29, "pts": 367, "v": -13.8}, {"id": "P677960", "n": "Ryan Weathers", "t": "NYY", "k": "P", "p": "SP", "a": 27, "pts": 440, "v": -14.2}, {"id": "P663567", "n": "Peter Lambert", "t": "HOU", "k": "P", "p": "SP", "a": 30, "pts": 440, "v": -14.6}, {"id": "P683003", "n": "Jared Jones", "t": "PIT", "k": "P", "p": "SP", "a": 25, "pts": 440, "v": -14.8}, {"id": "P641816", "n": "Tyler Mahle", "t": "ATL", "k": "P", "p": "SP", "a": 32, "pts": 439, "v": -15.9}, {"id": "P669372", "n": "J.T. Ginn", "t": "ATH", "k": "P", "p": "SP", "a": 28, "pts": 438, "v": -16.9}, {"id": "H805367", "n": "Chase Meidroth", "t": "CWS", "k": "H", "p": "SS/2B", "a": 25, "pts": 918, "v": -16.9}, {"id": "P656427", "n": "Jack Flaherty", "t": "DET", "k": "P", "p": "SP", "a": 31, "pts": 437, "v": -17.3}, {"id": "P660271", "n": "Shohei Ohtani", "t": "LAD", "k": "P", "p": "SP", "a": 32, "pts": 437, "v": -17.4}, {"id": "H802139", "n": "JJ Wetherholt", "t": "STL", "k": "H", "p": "SS/2B", "a": 24, "pts": 917, "v": -17.9}, {"id": "P445276", "n": "Kenley Jansen", "t": "DET", "k": "P", "p": "RP", "a": 39, "pts": 361, "v": -19.6}, {"id": "P672456", "n": "Keider Montero", "t": "DET", "k": "P", "p": "SP", "a": 26, "pts": 434, "v": -20.6}, {"id": "H686797", "n": "Brooks Lee", "t": "MIN", "k": "H", "p": "SS/3B", "a": 26, "pts": 918, "v": -20.8}, {"id": "P670970", "n": "Adrian Morejon", "t": "SD", "k": "P", "p": "RP", "a": 28, "pts": 360, "v": -20.9}, {"id": "P681517", "n": "Kyle Leahy", "t": "STL", "k": "P", "p": "SP", "a": 30, "pts": 434, "v": -21.1}, {"id": "H650333", "n": "Luis Arraez", "t": "PHI", "k": "H", "p": "2B", "a": 30, "pts": 912, "v": -22.1}, {"id": "H701358", "n": "Cam Smith", "t": "HOU", "k": "H", "p": "OF", "a": 24, "pts": 916, "v": -22.1}, {"id": "P663969", "n": "Tyler Phillips", "t": "MIA", "k": "P", "p": "SP/RP", "a": 29, "pts": 358, "v": -23.0}, {"id": "P571510", "n": "Matthew Boyd", "t": "CHC", "k": "P", "p": "SP", "a": 36, "pts": 432, "v": -23.1}, {"id": "P693855", "n": "Ian Seymour", "t": "TB", "k": "P", "p": "SP/RP", "a": 28, "pts": 357, "v": -23.8}, {"id": "P647336", "n": "Michael Soroka", "t": "ARI", "k": "P", "p": "SP", "a": 29, "pts": 429, "v": -25.7}, {"id": "H691016", "n": "Tyler Soderstrom", "t": "ATH", "k": "H", "p": "OF", "a": 25, "pts": 912, "v": -25.9}, {"id": "P669461", "n": "Matthew Liberatore", "t": "STL", "k": "P", "p": "SP", "a": 27, "pts": 428, "v": -26.9}, {"id": "H669016", "n": "Brandon Marsh", "t": "PHI", "k": "H", "p": "OF", "a": 29, "pts": 911, "v": -27.4}, {"id": "P682052", "n": "Jacob Lopez", "t": "ATH", "k": "P", "p": "SP", "a": 29, "pts": 427, "v": -28.0}, {"id": "P664126", "n": "Pete Fairbanks", "t": "MIA", "k": "P", "p": "RP", "a": 33, "pts": 352, "v": -28.3}, {"id": "P656849", "n": "David Peterson", "t": "CHC", "k": "P", "p": "SP", "a": 31, "pts": 426, "v": -28.4}, {"id": "P676974", "n": "Max Meyer", "t": "MIA", "k": "P", "p": "SP", "a": 28, "pts": 426, "v": -29.1}, {"id": "P663554", "n": "Casey Mize", "t": "SD", "k": "P", "p": "SP", "a": 30, "pts": 425, "v": -29.3}, {"id": "H606192", "n": "Teoscar Hernández", "t": "LAD", "k": "H", "p": "OF", "a": 34, "pts": 906, "v": -31.7}, {"id": "H808982", "n": "Jung Hoo Lee", "t": "SF", "k": "H", "p": "OF", "a": 28, "pts": 904, "v": -34.2}, {"id": "H686527", "n": "Dominic Canzone", "t": "SEA", "k": "H", "p": "OF", "a": 29, "pts": 902, "v": -36.2}, {"id": "H702284", "n": "Cole Young", "t": "SEA", "k": "H", "p": "2B", "a": 23, "pts": 898, "v": -36.3}, {"id": "H802415", "n": "Chandler Simpson", "t": "TB", "k": "H", "p": "OF", "a": 26, "pts": 900, "v": -37.8}, {"id": "P656550", "n": "Grant Holmes", "t": "ATL", "k": "P", "p": "SP", "a": 31, "pts": 416, "v": -38.5}, {"id": "P642207", "n": "Devin Williams", "t": "NYM", "k": "P", "p": "RP", "a": 32, "pts": 341, "v": -39.1}, {"id": "P669160", "n": "Dustin May", "t": "MIL", "k": "P", "p": "SP", "a": 29, "pts": 415, "v": -39.7}, {"id": "H665161", "n": "Jeremy Peña", "t": "HOU", "k": "H", "p": "SS", "a": 29, "pts": 900, "v": -40.1}, {"id": "H681715", "n": "Heriberto Hernández", "t": "MIA", "k": "H", "p": "OF", "a": 27, "pts": 898, "v": -40.6}, {"id": "P682243", "n": "Bryce Miller", "t": "SEA", "k": "P", "p": "SP", "a": 28, "pts": 414, "v": -40.8}, {"id": "P672782", "n": "Yoendrys Gómez", "t": "MIN", "k": "P", "p": "RP", "a": 27, "pts": 339, "v": -41.8}, {"id": "P805673", "n": "Zebby Matthews", "t": "MIN", "k": "P", "p": "SP", "a": 27, "pts": 411, "v": -43.5}, {"id": "P641793", "n": "Zack Littell", "t": "FA", "k": "P", "p": "SP/RP", "a": 31, "pts": 337, "v": -43.5}, {"id": "P687570", "n": "Connor Prielipp", "t": "MIN", "k": "P", "p": "SP", "a": 26, "pts": 411, "v": -44.0}, {"id": "P622491", "n": "Luis Castillo", "t": "CWS", "k": "P", "p": "SP", "a": 34, "pts": 409, "v": -45.8}, {"id": "P663687", "n": "Hogan Harris", "t": "ATH", "k": "P", "p": "RP", "a": 30, "pts": 334, "v": -46.0}, {"id": "P693821", "n": "Bryce Elder", "t": "ATL", "k": "P", "p": "SP", "a": 28, "pts": 408, "v": -46.7}, {"id": "H514888", "n": "Jose Altuve", "t": "HOU", "k": "H", "p": "2B", "a": 37, "pts": 888, "v": -47.1}, {"id": "P687064", "n": "Brandon Young", "t": "BAL", "k": "P", "p": "SP", "a": 28, "pts": 407, "v": -48.0}, {"id": "H681198", "n": "TJ Rumfield", "t": "COL", "k": "H", "p": "1B", "a": 27, "pts": 878, "v": -49.7}, {"id": "P607625", "n": "Seth Lugo", "t": "KC", "k": "P", "p": "SP", "a": 37, "pts": 403, "v": -51.2}, {"id": "P681035", "n": "Christian Scott", "t": "NYM", "k": "P", "p": "SP", "a": 28, "pts": 403, "v": -51.6}, {"id": "P675512", "n": "Troy Melton", "t": "DET", "k": "P", "p": "SP", "a": 26, "pts": 403, "v": -51.6}, {"id": "P673540", "n": "Kodai Senga", "t": "NYM", "k": "P", "p": "SP/RP", "a": 34, "pts": 329, "v": -51.9}, {"id": "P687562", "n": "Jake Bennett", "t": "BOS", "k": "P", "p": "SP", "a": 26, "pts": 401, "v": -53.3}, {"id": "P641927", "n": "Bailey Ober", "t": "MIN", "k": "P", "p": "SP", "a": 31, "pts": 401, "v": -54.0}, {"id": "H803011", "n": "Sam Antonacci", "t": "CWS", "k": "H", "p": "2B/OF", "a": 24, "pts": 880, "v": -54.7}, {"id": "P663903", "n": "Brady Singer", "t": "CIN", "k": "P", "p": "SP", "a": 30, "pts": 400, "v": -54.8}, {"id": "H571448", "n": "Nolan Arenado", "t": "ARI", "k": "H", "p": "3B", "a": 36, "pts": 884, "v": -55.5}, {"id": "P702056", "n": "Trey Yesavage", "t": "TOR", "k": "P", "p": "SP", "a": 23, "pts": 397, "v": -57.4}, {"id": "P650556", "n": "Bryan Abreu", "t": "HOU", "k": "P", "p": "RP", "a": 30, "pts": 322, "v": -58.2}, {"id": "H677587", "n": "Brayan Rocchio", "t": "CLE", "k": "H", "p": "SS/2B", "a": 26, "pts": 876, "v": -58.7}, {"id": "P669467", "n": "Andre Pallante", "t": "STL", "k": "P", "p": "SP", "a": 28, "pts": 395, "v": -59.4}, {"id": "P694477", "n": "Chad Patrick", "t": "MIL", "k": "P", "p": "SP/RP", "a": 28, "pts": 321, "v": -59.5}, {"id": "P677958", "n": "Kumar Rocker", "t": "TEX", "k": "P", "p": "SP", "a": 27, "pts": 395, "v": -59.7}, {"id": "P813349", "n": "Connelly Early", "t": "WSH", "k": "P", "p": "SP", "a": 25, "pts": 392, "v": -62.6}, {"id": "H800050", "n": "Chase DeLauter", "t": "CLE", "k": "H", "p": "OF", "a": 25, "pts": 875, "v": -62.8}, {"id": "H608369", "n": "Corey Seager", "t": "TEX", "k": "H", "p": "SS", "a": 33, "pts": 875, "v": -65.6}, {"id": "P676106", "n": "Emerson Hancock", "t": "SEA", "k": "P", "p": "SP", "a": 28, "pts": 389, "v": -65.6}, {"id": "P642397", "n": "Gregory Soto", "t": "PIT", "k": "P", "p": "RP", "a": 32, "pts": 315, "v": -65.7}, {"id": "P678394", "n": "Brayan Bello", "t": "BOS", "k": "P", "p": "SP/RP", "a": 28, "pts": 314, "v": -66.1}, {"id": "P518876", "n": "Merrill Kelly", "t": "ARI", "k": "P", "p": "SP", "a": 38, "pts": 388, "v": -66.4}, {"id": "H669003", "n": "Garrett Mitchell", "t": "MIL", "k": "H", "p": "OF", "a": 28, "pts": 871, "v": -67.1}, {"id": "P676962", "n": "Ben Brown", "t": "CHC", "k": "P", "p": "SP/RP", "a": 27, "pts": 311, "v": -69.1}, {"id": "H668709", "n": "JJ Bleday", "t": "CIN", "k": "H", "p": "OF", "a": 29, "pts": 869, "v": -69.1}, {"id": "P693686", "n": "Spencer Miles", "t": "TOR", "k": "P", "p": "SP/RP", "a": 26, "pts": 308, "v": -72.3}, {"id": "P621242", "n": "Edwin Díaz", "t": "LAD", "k": "P", "p": "RP", "a": 33, "pts": 308, "v": -73.0}, {"id": "P666171", "n": "Ryan Zeferjahn", "t": "CHC", "k": "P", "p": "RP", "a": 29, "pts": 307, "v": -73.7}, {"id": "P808963", "n": "Roki Sasaki", "t": "LAD", "k": "P", "p": "SP", "a": 25, "pts": 381, "v": -74.0}, {"id": "P665152", "n": "Dean Kremer", "t": "MIN", "k": "P", "p": "SP", "a": 31, "pts": 380, "v": -74.1}, {"id": "P663436", "n": "Davis Martin", "t": "CWS", "k": "P", "p": "SP", "a": 30, "pts": 380, "v": -74.5}, {"id": "P663556", "n": "Shane McClanahan", "t": "TB", "k": "P", "p": "SP", "a": 30, "pts": 378, "v": -76.4}, {"id": "P605288", "n": "Adrian Houser", "t": "SF", "k": "P", "p": "SP/RP", "a": 34, "pts": 304, "v": -76.7}, {"id": "H663886", "n": "Tyler Stephenson", "t": "CIN", "k": "H", "p": "C", "a": 30, "pts": 791, "v": -76.8}, {"id": "P700241", "n": "Michael McGreevy", "t": "STL", "k": "P", "p": "SP", "a": 26, "pts": 378, "v": -76.8}, {"id": "P678022", "n": "Jack Perkins", "t": "ATH", "k": "P", "p": "SP/RP", "a": 27, "pts": 303, "v": -77.3}, {"id": "P623149", "n": "Paul Sewald", "t": "TOR", "k": "P", "p": "RP", "a": 37, "pts": 303, "v": -77.7}, {"id": "H693304", "n": "Nick Gonzales", "t": "PIT", "k": "H", "p": "2B/3B", "a": 28, "pts": 857, "v": -77.8}, {"id": "P625643", "n": "Reynaldo López", "t": "ATL", "k": "P", "p": "SP/RP", "a": 33, "pts": 301, "v": -79.5}, {"id": "H668904", "n": "Royce Lewis", "t": "MIN", "k": "H", "p": "2B/3B/1B", "a": 28, "pts": 844, "v": -82.8}, {"id": "P601713", "n": "Nick Pivetta", "t": "SD", "k": "P", "p": "SP", "a": 34, "pts": 371, "v": -83.4}, {"id": "P605483", "n": "Blake Snell", "t": "LAD", "k": "P", "p": "SP", "a": 34, "pts": 370, "v": -84.3}, {"id": "P674841", "n": "Andrew Alvarez", "t": "WSH", "k": "P", "p": "SP", "a": 28, "pts": 370, "v": -85.0}, {"id": "P622554", "n": "Seranthony Domínguez", "t": "SEA", "k": "P", "p": "RP", "a": 32, "pts": 294, "v": -86.8}, {"id": "P665871", "n": "Javier Assad", "t": "CHC", "k": "P", "p": "SP/RP", "a": 29, "pts": 294, "v": -87.0}, {"id": "P800311", "n": "Didier Fuentes", "t": "ATL", "k": "P", "p": "RP", "a": 22, "pts": 293, "v": -87.4}, {"id": "H676609", "n": "José Caballero", "t": "NYY", "k": "H", "p": "SS/2B/3B/OF", "a": 30, "pts": 846, "v": -88.7}, {"id": "H543760", "n": "Marcus Semien", "t": "NYM", "k": "H", "p": "2B", "a": 36, "pts": 846, "v": -89.0}, {"id": "H592663", "n": "J.T. Realmuto", "t": "PHI", "k": "H", "p": "C", "a": 36, "pts": 779, "v": -89.1}, {"id": "P666157", "n": "Nick Lodolo", "t": "CIN", "k": "P", "p": "SP", "a": 29, "pts": 365, "v": -89.4}, {"id": "P663460", "n": "Kris Bubic", "t": "LAD", "k": "P", "p": "SP", "a": 29, "pts": 365, "v": -89.5}, {"id": "P682842", "n": "Abner Uribe", "t": "MIL", "k": "P", "p": "RP", "a": 27, "pts": 291, "v": -89.8}, {"id": "P621111", "n": "Walker Buehler", "t": "SD", "k": "P", "p": "SP", "a": 32, "pts": 365, "v": -89.8}, {"id": "P605280", "n": "Clay Holmes", "t": "CHC", "k": "P", "p": "SP", "a": 34, "pts": 364, "v": -90.1}, {"id": "P605540", "n": "Brandon Woodruff", "t": "MIL", "k": "P", "p": "SP", "a": 34, "pts": 363, "v": -91.2}, {"id": "H680574", "n": "Matt McLain", "t": "CIN", "k": "H", "p": "SS/2B", "a": 27, "pts": 843, "v": -91.7}, {"id": "H656811", "n": "Ryan O'Hearn", "t": "PIT", "k": "H", "p": "1B/OF", "a": 33, "pts": 836, "v": -91.7}, {"id": "P641778", "n": "Eric Lauer", "t": "LAD", "k": "P", "p": "SP", "a": 32, "pts": 363, "v": -92.0}, {"id": "P605488", "n": "Jeffrey Springs", "t": "ATH", "k": "P", "p": "SP", "a": 34, "pts": 362, "v": -93.0}, {"id": "H656775", "n": "Cedric Mullins", "t": "TB", "k": "H", "p": "OF", "a": 32, "pts": 844, "v": -94.6}, {"id": "H671218", "n": "Heliot Ramos", "t": "NYY", "k": "H", "p": "OF", "a": 27, "pts": 843, "v": -95.4}, {"id": "P669199", "n": "Lake Bachar", "t": "PIT", "k": "P", "p": "SP/RP", "a": 32, "pts": 284, "v": -96.0}, {"id": "P681293", "n": "Spencer Arrighetti", "t": "TOR", "k": "P", "p": "SP", "a": 27, "pts": 358, "v": -96.1}, {"id": "P695611", "n": "Gage Jump", "t": "ATH", "k": "P", "p": "SP", "a": 24, "pts": 358, "v": -96.9}, {"id": "H676391", "n": "Ernie Clement", "t": "TOR", "k": "H", "p": "SS/2B/3B", "a": 31, "pts": 836, "v": -98.1}, {"id": "P657097", "n": "Jacob Webb", "t": "CHC", "k": "P", "p": "RP", "a": 33, "pts": 282, "v": -98.3}, {"id": "P668881", "n": "Hunter Greene", "t": "CIN", "k": "P", "p": "SP", "a": 27, "pts": 355, "v": -99.7}, {"id": "P691725", "n": "Andrew Painter", "t": "PHI", "k": "P", "p": "SP", "a": 24, "pts": 355, "v": -100.0}, {"id": "P670990", "n": "Yohan Ramírez", "t": "PIT", "k": "P", "p": "RP", "a": 32, "pts": 280, "v": -100.1}, {"id": "P650644", "n": "Aaron Civale", "t": "CHC", "k": "P", "p": "SP/RP", "a": 32, "pts": 280, "v": -100.1}, {"id": "P669330", "n": "Tyler Wells", "t": "TB", "k": "P", "p": "RP", "a": 32, "pts": 279, "v": -101.6}, {"id": "P677944", "n": "Slade Cecconi", "t": "CLE", "k": "P", "p": "SP", "a": 28, "pts": 353, "v": -102.0}, {"id": "P663158", "n": "Robert Suarez", "t": "ATL", "k": "P", "p": "RP", "a": 36, "pts": 277, "v": -103.6}, {"id": "P676477", "n": "Garrett Whitlock", "t": "BOS", "k": "P", "p": "RP", "a": 31, "pts": 277, "v": -103.7}, {"id": "P680573", "n": "Simeon Woods Richardson", "t": "FA", "k": "P", "p": "SP/RP", "a": 26, "pts": 276, "v": -104.4}, {"id": "P681911", "n": "Alex Vesia", "t": "LAD", "k": "P", "p": "RP", "a": 31, "pts": 276, "v": -104.5}, {"id": "H691026", "n": "Masyn Winn", "t": "STL", "k": "H", "p": "SS", "a": 25, "pts": 836, "v": -104.6}, {"id": "P805123", "n": "AJ Blubaugh", "t": "HOU", "k": "P", "p": "RP", "a": 26, "pts": 275, "v": -105.3}, {"id": "P623454", "n": "Drew Anderson", "t": "DET", "k": "P", "p": "SP/RP", "a": 33, "pts": 275, "v": -105.4}, {"id": "P688107", "n": "Robert Gasser", "t": "MIL", "k": "P", "p": "SP", "a": 28, "pts": 349, "v": -105.5}, {"id": "H643289", "n": "Mauricio Dubón", "t": "ATL", "k": "H", "p": "SS/3B/OF", "a": 32, "pts": 832, "v": -105.9}, {"id": "P683004", "n": "Jack Leiter", "t": "TEX", "k": "P", "p": "SP", "a": 27, "pts": 348, "v": -106.8}, {"id": "H677649", "n": "Ezequiel Duran", "t": "TEX", "k": "H", "p": "SS/2B/3B/OF", "a": 28, "pts": 828, "v": -106.9}, {"id": "H650489", "n": "Willi Castro", "t": "COL", "k": "H", "p": "SS/2B/3B/1B", "a": 30, "pts": 820, "v": -106.9}, {"id": "P665795", "n": "Edward Cabrera", "t": "CHC", "k": "P", "p": "SP", "a": 29, "pts": 348, "v": -106.9}, {"id": "P669387", "n": "Carmen Mlodzinski", "t": "PIT", "k": "P", "p": "SP/RP", "a": 28, "pts": 273, "v": -107.3}, {"id": "P687396", "n": "Brent Headrick", "t": "NYY", "k": "P", "p": "RP", "a": 29, "pts": 272, "v": -108.1}, {"id": "P669276", "n": "Dylan Lee", "t": "ATL", "k": "P", "p": "RP", "a": 32, "pts": 272, "v": -108.3}, {"id": "P605135", "n": "Chris Bassitt", "t": "BAL", "k": "P", "p": "SP", "a": 38, "pts": 346, "v": -108.4}, {"id": "P670329", "n": "Rico Garcia", "t": "BAL", "k": "P", "p": "RP", "a": 33, "pts": 272, "v": -108.9}, {"id": "P699134", "n": "Bradgley Rodriguez", "t": "SD", "k": "P", "p": "RP", "a": 23, "pts": 271, "v": -109.5}, {"id": "P641743", "n": "Anthony Kay", "t": "CWS", "k": "P", "p": "SP", "a": 32, "pts": 343, "v": -111.5}, {"id": "H683146", "n": "Brett Baty", "t": "NYM", "k": "H", "p": "2B/3B/1B/OF", "a": 27, "pts": 815, "v": -111.9}, {"id": "P656605", "n": "Mitch Keller", "t": "PIT", "k": "P", "p": "SP", "a": 31, "pts": 342, "v": -112.5}, {"id": "P676083", "n": "Janson Junk", "t": "MIA", "k": "P", "p": "SP", "a": 31, "pts": 342, "v": -113.1}, {"id": "H664034", "n": "Ty France", "t": "SD", "k": "H", "p": "1B", "a": 32, "pts": 814, "v": -113.6}, {"id": "P669194", "n": "Ryne Nelson", "t": "ARI", "k": "P", "p": "SP", "a": 29, "pts": 341, "v": -113.7}, {"id": "H691723", "n": "Coby Mayo", "t": "BAL", "k": "H", "p": "3B/1B", "a": 25, "pts": 814, "v": -113.7}, {"id": "P837227", "n": "Tatsuya Imai", "t": "HOU", "k": "P", "p": "SP", "a": 29, "pts": 340, "v": -114.2}, {"id": "P666142", "n": "Cole Ragans", "t": "KC", "k": "P", "p": "SP", "a": 29, "pts": 340, "v": -114.3}, {"id": "P596133", "n": "Luke Weaver", "t": "PIT", "k": "P", "p": "RP", "a": 33, "pts": 265, "v": -115.6}, {"id": "P676263", "n": "Jack Dreyer", "t": "LAD", "k": "P", "p": "RP", "a": 28, "pts": 263, "v": -117.3}, {"id": "P676534", "n": "Calvin Faucher", "t": "MIA", "k": "P", "p": "RP", "a": 31, "pts": 263, "v": -117.3}, {"id": "H662139", "n": "Daulton Varsho", "t": "HOU", "k": "H", "p": "OF", "a": 30, "pts": 820, "v": -117.9}, {"id": "H686555", "n": "Isaac Collins", "t": "KC", "k": "H", "p": "OF", "a": 29, "pts": 820, "v": -118.1}, {"id": "H608348", "n": "Carson Kelly", "t": "CHC", "k": "H", "p": "C", "a": 32, "pts": 749, "v": -119.3}, {"id": "P656288", "n": "Griffin Canning", "t": "SD", "k": "P", "p": "SP/RP", "a": 31, "pts": 259, "v": -121.8}, {"id": "P685299", "n": "Tanner Gordon", "t": "COL", "k": "P", "p": "SP/RP", "a": 29, "pts": 258, "v": -122.0}, {"id": "H680777", "n": "Ryan Jeffers", "t": "MIN", "k": "H", "p": "C", "a": 30, "pts": 746, "v": -122.3}, {"id": "P689147", "n": "Orion Kerkering", "t": "PHI", "k": "P", "p": "RP", "a": 26, "pts": 258, "v": -122.6}, {"id": "H666160", "n": "Mickey Moniak", "t": "COL", "k": "H", "p": "OF", "a": 29, "pts": 815, "v": -123.1}, {"id": "P663542", "n": "Bryan Hudson", "t": "CWS", "k": "P", "p": "SP/RP", "a": 30, "pts": 257, "v": -123.8}, {"id": "H691594", "n": "Javier Sanoja", "t": "MIA", "k": "H", "p": "SS/2B/3B/OF", "a": 24, "pts": 810, "v": -124.1}, {"id": "P668678", "n": "Zac Gallen", "t": "ARI", "k": "P", "p": "SP", "a": 31, "pts": 330, "v": -124.3}, {"id": "P579328", "n": "Yusei Kikuchi", "t": "LAA", "k": "P", "p": "SP", "a": 36, "pts": 329, "v": -125.4}, {"id": "H683953", "n": "Travis Bazzana", "t": "CLE", "k": "H", "p": "2B", "a": 24, "pts": 809, "v": -125.4}, {"id": "P552640", "n": "Andrew Kittredge", "t": "BAL", "k": "P", "p": "RP", "a": 37, "pts": 255, "v": -125.4}, {"id": "H669224", "n": "Austin Wells", "t": "NYY", "k": "H", "p": "C", "a": 27, "pts": 743, "v": -125.5}, {"id": "P690925", "n": "Clayton Beeter", "t": "WSH", "k": "P", "p": "RP", "a": 28, "pts": 254, "v": -126.3}, {"id": "H643217", "n": "Andrew Benintendi", "t": "CWS", "k": "H", "p": "OF", "a": 32, "pts": 812, "v": -126.5}, {"id": "P615698", "n": "Cal Quantrill", "t": "TEX", "k": "P", "p": "SP/RP", "a": 32, "pts": 254, "v": -126.6}, {"id": "P595345", "n": "Steven Okert", "t": "HOU", "k": "P", "p": "RP", "a": 35, "pts": 254, "v": -127.0}, {"id": "P527048", "n": "Martín Pérez", "t": "ATL", "k": "P", "p": "SP", "a": 36, "pts": 328, "v": -127.1}, {"id": "H592626", "n": "Joc Pederson", "t": "TEX", "k": "H", "p": "1B", "a": 35, "pts": 800, "v": -127.4}, {"id": "H663616", "n": "Trevor Larnach", "t": "MIN", "k": "H", "p": "OF", "a": 30, "pts": 810, "v": -128.3}, {"id": "P666808", "n": "Camilo Doval", "t": "SF", "k": "P", "p": "RP", "a": 29, "pts": 252, "v": -128.8}, {"id": "P689254", "n": "Mason Fluharty", "t": "TOR", "k": "P", "p": "RP", "a": 25, "pts": 251, "v": -129.5}, {"id": "H686611", "n": "Dylan Crews", "t": "WSH", "k": "H", "p": "OF", "a": 25, "pts": 808, "v": -129.8}, {"id": "P668674", "n": "Lucas Erceg", "t": "KC", "k": "P", "p": "RP", "a": 32, "pts": 251, "v": -129.9}, {"id": "H643446", "n": "Jeff McNeil", "t": "ATH", "k": "H", "p": "2B/1B", "a": 35, "pts": 797, "v": -130.4}, {"id": "H682626", "n": "Francisco Alvarez", "t": "NYM", "k": "H", "p": "C", "a": 25, "pts": 737, "v": -130.9}, {"id": "P695418", "n": "Brad Lord", "t": "WSH", "k": "P", "p": "SP/RP", "a": 27, "pts": 250, "v": -131.0}, {"id": "P680755", "n": "Braydon Fisher", "t": "TOR", "k": "P", "p": "SP/RP", "a": 26, "pts": 249, "v": -131.2}, {"id": "H663993", "n": "Nathaniel Lowe", "t": "CLE", "k": "H", "p": "1B", "a": 31, "pts": 795, "v": -132.3}, {"id": "P702193", "n": "Andrew Morris", "t": "MIN", "k": "P", "p": "RP", "a": 25, "pts": 248, "v": -132.6}, {"id": "P664854", "n": "Ryan Helsley", "t": "BAL", "k": "P", "p": "RP", "a": 32, "pts": 247, "v": -133.1}, {"id": "P605447", "n": "Jordan Romano", "t": "COL", "k": "P", "p": "RP", "a": 34, "pts": 247, "v": -133.5}, {"id": "P656271", "n": "Brock Burke", "t": "CIN", "k": "P", "p": "RP", "a": 30, "pts": 247, "v": -133.6}, {"id": "H668715", "n": "Spencer Steer", "t": "CIN", "k": "H", "p": "2B/1B/OF", "a": 29, "pts": 793, "v": -134.2}, {"id": "H694384", "n": "Nolan Schanuel", "t": "LAA", "k": "H", "p": "1B", "a": 25, "pts": 792, "v": -135.5}, {"id": "H805999", "n": "A.J. Ewing", "t": "NYM", "k": "H", "p": "OF", "a": 22, "pts": 802, "v": -135.6}, {"id": "H673237", "n": "Yainer Diaz", "t": "HOU", "k": "H", "p": "C", "a": 28, "pts": 732, "v": -135.6}, {"id": "H805811", "n": "Bryce Eldridge", "t": "SF", "k": "H", "p": "1B", "a": 22, "pts": 792, "v": -135.7}, {"id": "P666661", "n": "Juan Morillo", "t": "ARI", "k": "P", "p": "RP", "a": 28, "pts": 245, "v": -135.9}, {"id": "P592791", "n": "Jameson Taillon", "t": "TOR", "k": "P", "p": "SP", "a": 35, "pts": 319, "v": -136.0}, {"id": "P683618", "n": "Edgardo Henriquez", "t": "LAD", "k": "P", "p": "RP", "a": 25, "pts": 244, "v": -136.4}, {"id": "P656794", "n": "Sean Newcomb", "t": "CWS", "k": "P", "p": "SP/RP", "a": 34, "pts": 244, "v": -136.5}, {"id": "H668939", "n": "Adley Rutschman", "t": "BOS", "k": "H", "p": "C", "a": 29, "pts": 731, "v": -137.0}, {"id": "P687911", "n": "Bryan King", "t": "HOU", "k": "P", "p": "RP", "a": 30, "pts": 243, "v": -137.2}, {"id": "P674444", "n": "Steven Cruz", "t": "FA", "k": "P", "p": "RP", "a": 28, "pts": 243, "v": -137.2}, {"id": "P656464", "n": "Kevin Ginkel", "t": "ARI", "k": "P", "p": "RP", "a": 33, "pts": 243, "v": -137.3}, {"id": "H641487", "n": "J.P. Crawford", "t": "SEA", "k": "H", "p": "SS/3B", "a": 32, "pts": 802, "v": -137.5}, {"id": "P621112", "n": "Paul Blackburn", "t": "NYY", "k": "P", "p": "RP", "a": 33, "pts": 243, "v": -137.5}, {"id": "P681347", "n": "Mike Burrows", "t": "HOU", "k": "P", "p": "SP", "a": 27, "pts": 317, "v": -137.6}, {"id": "P687075", "n": "Brandon Sproat", "t": "MIL", "k": "P", "p": "SP", "a": 26, "pts": 317, "v": -137.9}, {"id": "P518585", "n": "Fernando Cruz", "t": "NYY", "k": "P", "p": "RP", "a": 37, "pts": 241, "v": -139.3}, {"id": "P660853", "n": "Enyel De Los Santos", "t": "HOU", "k": "P", "p": "RP", "a": 31, "pts": 241, "v": -139.3}, {"id": "P665660", "n": "Elvis Alvarado", "t": "ATH", "k": "P", "p": "RP", "a": 28, "pts": 241, "v": -139.4}, {"id": "P700669", "n": "Gordon Graceffo", "t": "STL", "k": "P", "p": "RP", "a": 27, "pts": 240, "v": -140.5}, {"id": "P641302", "n": "Tyler Alexander", "t": "TEX", "k": "P", "p": "SP/RP", "a": 32, "pts": 239, "v": -141.2}, {"id": "P675848", "n": "Juan Mejia", "t": "COL", "k": "P", "p": "RP", "a": 26, "pts": 239, "v": -141.5}, {"id": "H669477", "n": "Casey Schmitt", "t": "SF", "k": "H", "p": "2B/3B/1B/OF", "a": 28, "pts": 786, "v": -141.6}, {"id": "P663623", "n": "Jake Irvin", "t": "WSH", "k": "P", "p": "SP", "a": 30, "pts": 313, "v": -141.9}, {"id": "P660825", "n": "Eduard Bazardo", "t": "SEA", "k": "P", "p": "RP", "a": 31, "pts": 238, "v": -142.7}, {"id": "P669062", "n": "Erik Miller", "t": "BOS", "k": "P", "p": "RP", "a": 29, "pts": 238, "v": -142.8}, {"id": "P665622", "n": "Luis Medina", "t": "ATH", "k": "P", "p": "RP", "a": 28, "pts": 237, "v": -143.1}, {"id": "P680570", "n": "Grayson Rodriguez", "t": "LAA", "k": "P", "p": "SP", "a": 27, "pts": 311, "v": -143.3}, {"id": "P696270", "n": "Ryan Johnson", "t": "LAA", "k": "P", "p": "SP", "a": 24, "pts": 311, "v": -143.3}, {"id": "P678606", "n": "José A. Ferrer", "t": "SEA", "k": "P", "p": "RP", "a": 27, "pts": 237, "v": -143.3}, {"id": "P673513", "n": "Yuki Matsui", "t": "SD", "k": "P", "p": "RP", "a": 31, "pts": 237, "v": -143.5}, {"id": "P687330", "n": "Kevin Kelly", "t": "TB", "k": "P", "p": "RP", "a": 29, "pts": 236, "v": -144.0}, {"id": "H678662", "n": "Ezequiel Tovar", "t": "COL", "k": "H", "p": "SS", "a": 25, "pts": 796, "v": -144.1}, {"id": "P571927", "n": "Steven Matz", "t": "TB", "k": "P", "p": "SP/RP", "a": 36, "pts": 236, "v": -144.5}, {"id": "H690993", "n": "Colt Keith", "t": "DET", "k": "H", "p": "3B/1B", "a": 25, "pts": 782, "v": -145.4}, {"id": "P675911", "n": "Spencer Strider", "t": "ATL", "k": "P", "p": "SP", "a": 28, "pts": 308, "v": -146.9}, {"id": "H683083", "n": "Nasim Nuñez", "t": "WSH", "k": "H", "p": "SS/2B", "a": 26, "pts": 787, "v": -147.2}, {"id": "P642701", "n": "Dennis Santana", "t": "ARI", "k": "P", "p": "RP", "a": 31, "pts": 233, "v": -147.3}, {"id": "P678906", "n": "Kai-Wei Teng", "t": "HOU", "k": "P", "p": "SP/RP", "a": 28, "pts": 233, "v": -147.9}, {"id": "P695076", "n": "Rhett Lowder", "t": "CIN", "k": "P", "p": "SP", "a": 25, "pts": 306, "v": -148.1}, {"id": "P668873", "n": "Caleb Kilian", "t": "PHI", "k": "P", "p": "RP", "a": 30, "pts": 231, "v": -149.2}, {"id": "H650402", "n": "Gleyber Torres", "t": "DET", "k": "H", "p": "2B", "a": 30, "pts": 785, "v": -149.2}, {"id": "P681870", "n": "Erik Sabrowski", "t": "CLE", "k": "P", "p": "RP", "a": 29, "pts": 231, "v": -149.5}, {"id": "P683769", "n": "Hunter Gaddis", "t": "CLE", "k": "P", "p": "RP", "a": 29, "pts": 230, "v": -150.0}, {"id": "H696285", "n": "Jacob Young", "t": "WSH", "k": "H", "p": "OF", "a": 27, "pts": 788, "v": -150.0}, {"id": "P663947", "n": "Tyler Holton", "t": "DET", "k": "P", "p": "RP", "a": 31, "pts": 230, "v": -150.0}, {"id": "P608032", "n": "Carlos Estévez", "t": "KC", "k": "P", "p": "RP", "a": 34, "pts": 229, "v": -151.1}, {"id": "P804267", "n": "Zac Thornton", "t": "NYM", "k": "P", "p": "SP", "a": 25, "pts": 303, "v": -151.3}, {"id": "H665926", "n": "Andrés Giménez", "t": "TOR", "k": "H", "p": "SS", "a": 28, "pts": 788, "v": -151.9}, {"id": "P676684", "n": "Will Vest", "t": "DET", "k": "P", "p": "RP", "a": 32, "pts": 228, "v": -152.4}, {"id": "H694212", "n": "Samuel Basallo", "t": "BAL", "k": "H", "p": "C/1B", "a": 22, "pts": 716, "v": -152.6}, {"id": "P663372", "n": "Ryan Feltner", "t": "COL", "k": "P", "p": "SP", "a": 30, "pts": 302, "v": -152.7}, {"id": "P679883", "n": "Luinder Avila", "t": "KC", "k": "P", "p": "SP", "a": 25, "pts": 301, "v": -153.7}, {"id": "P607200", "n": "Erick Fedde", "t": "CWS", "k": "P", "p": "SP/RP", "a": 34, "pts": 227, "v": -153.8}, {"id": "H687462", "n": "Spencer Horwitz", "t": "PIT", "k": "H", "p": "1B", "a": 29, "pts": 773, "v": -154.5}, {"id": "P681190", "n": "Randy Vásquez", "t": "SD", "k": "P", "p": "SP", "a": 28, "pts": 300, "v": -154.7}];
+const LEAGUE = {"name": "Webb's World / Top Tier Spencer", "teams": 10, "hitter_slots": {"C": 1, "1B": 1, "2B": 1, "3B": 1, "SS": 1, "OF": 3, "Util": 2}, "pitcher_slots": {"SP": 2, "RP": 2, "P": 4}, "bench": 5, "min_weekly_innings": 20, "eligibility": {"min_games": 10, "min_starts": 5}};
+const TEAMS = LEAGUE.teams || 10;
+const HIT_ORDER = ["C", "SS", "2B", "3B", "1B", "OF"];
+const STORE = "draftroom-2027";
+
+// Roster template from league settings: [{slot, kind}]
+const SLOTS = [];
+for (const [s, n] of Object.entries(LEAGUE.hitter_slots || {})) for (let i = 0; i < n; i++) SLOTS.push(s);
+for (const [s, n] of Object.entries(LEAGUE.pitcher_slots || {})) for (let i = 0; i < n; i++) SLOTS.push(s);
+for (let i = 0; i < (LEAGUE.bench || 0); i++) SLOTS.push("BN");
+const ROUNDS = SLOTS.length;
+const TOTAL_PICKS = ROUNDS * TEAMS;
+
+const byId = new Map(PLAYERS.map(p => [p.id, p]));
+PLAYERS.forEach((p, i) => {
+  p.rank = i + 1;
+  p.pos = p.p.split("/");
+  p.tier = i > 0 && PLAYERS[i - 1].v - p.v >= 9;
+});
+
+let state = { slot: 5, picks: [] };   // picks: [{id, mine}]
+try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && Array.isArray(s.picks)) state = s; } catch (e) {}
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
+
+let filter = "All";
+let resetArmed = false;
+
+// Snake order: odd rounds go 1..10, even rounds 10..1
+function teamForPick(pick) {
+  const r = Math.ceil(pick / TEAMS), i = (pick - 1) % TEAMS;
+  return r % 2 ? i + 1 : TEAMS - i;
+}
+function nextMyPick(from) {
+  for (let p = from; p <= TOTAL_PICKS; p++) if (teamForPick(p) === state.slot) return p;
+  return null;
+}
+
+// Put my players into lineup slots, scarcest spot first, then flex, then bench
+function buildRoster() {
+  const open = SLOTS.map(s => ({ slot: s, player: null }));
+  const place = (pl, wanted) => {
+    for (const w of wanted) { const o = open.find(x => x.slot === w && !x.player); if (o) { o.player = pl; return true; } }
+    return false;
+  };
+  for (const pk of state.picks.filter(p => p.mine)) {
+    const pl = byId.get(pk.id);
+    if (!pl) continue;
+    const wanted = pl.k === "H"
+      ? [...HIT_ORDER.filter(x => pl.pos.includes(x)), "Util", "BN"]
+      : [...["SP", "RP"].filter(x => pl.pos.includes(x)), "P", "BN"];
+    place(pl, wanted);
+  }
+  return open;
+}
+function fitsNeed(pl, roster) {
+  const openSlots = new Set(roster.filter(o => !o.player && o.slot !== "BN").map(o => o.slot));
+  if (pl.k === "H") return pl.pos.some(x => openSlots.has(x)) || openSlots.has("Util");
+  return pl.pos.some(x => openSlots.has(x)) || openSlots.has("P");
+}
+
+function render() {
+  const taken = new Map(state.picks.map(p => [p.id, p.mine]));
+  const cur = state.picks.length + 1;
+  const done = cur > TOTAL_PICKS;
+  const onClock = !done && teamForPick(cur) === state.slot;
+
+  // Clock strip
+  document.getElementById("round").textContent = done ? ROUNDS : Math.ceil(cur / TEAMS);
+  document.getElementById("pick").textContent = done ? TOTAL_PICKS : cur;
+  const st = document.getElementById("status");
+  st.className = "status" + (onClock ? " up" : done ? " done" : "");
+  if (done) st.textContent = "Draft complete";
+  else if (onClock) st.textContent = "You're on the clock";
+  else {
+    const nx = nextMyPick(cur);
+    const away = nx - cur;
+    st.textContent = `Team ${teamForPick(cur)} picking · you're up in ${away} (pick ${nx})`;
+  }
+  document.getElementById("undo").disabled = !state.picks.length;
+  const rb = document.getElementById("reset");
+  rb.textContent = resetArmed ? "Click again to clear all picks" : "Reset draft";
+  rb.classList.toggle("danger", resetArmed);
+
+  // Board
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const hide = document.getElementById("hide").checked;
+  const rows = PLAYERS.filter(p => {
+    if (hide && taken.has(p.id)) return false;
+    if (filter === "Hitters" && p.k !== "H") return false;
+    if (filter === "Pitchers" && p.k !== "P") return false;
+    if (!["All", "Hitters", "Pitchers"].includes(filter) && !p.pos.includes(filter)) return false;
+    if (q && !(p.n.toLowerCase().includes(q) || p.t.toLowerCase() === q)) return false;
+    return true;
+  });
+  const tbody = document.getElementById("rows");
+  tbody.classList.toggle("up", onClock);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">No players match. Clear the search or pick another position.</td></tr>`;
+  } else {
+    tbody.innerHTML = rows.map((p, i) => {
+      const t = taken.get(p.id);
+      const cls = [t === true ? "mine" : t === false ? "off" : "", p.tier && i > 0 && !q ? "tier" : ""].join(" ");
+      const acts = taken.has(p.id)
+        ? `<button class="act undo" data-undo="${p.id}" type="button">Put back</button>`
+        : `<button class="act" data-take="${p.id}" type="button">Taken</button><button class="act mine-btn" data-mine="${p.id}" type="button">Mine</button>`;
+      return `<tr class="${cls}">
+        <td class="r num meta">${p.rank}</td>
+        <td><div class="name">${p.n}</div><div class="meta">${p.t} · age ${p.a}</div></td>
+        <td><span class="pos ${p.k === "P" ? "p" : ""}">${p.p}</span></td>
+        <td class="r num hide-sm">${p.pts.toLocaleString()}</td>
+        <td class="r num vor">${p.v.toFixed(1)}</td>
+        <td><div class="acts">${acts}</div></td>
+      </tr>`;
+    }).join("");
+  }
+
+  // My roster
+  const roster = buildRoster();
+  document.getElementById("roster").innerHTML = roster.map(o =>
+    `<div class="slot">${o.slot}</div>` +
+    (o.player ? `<div class="filled">${o.player.n} <span class="meta">${o.player.p}</span></div>`
+              : `<div class="open">Open</div>`)
+  ).join("");
+  const mine = state.picks.filter(p => p.mine).map(p => byId.get(p.id)).filter(Boolean);
+  document.getElementById("mycount").textContent = `${mine.length} of ${ROUNDS} drafted`;
+  document.getElementById("mypts").textContent = `${mine.reduce((a, p) => a + p.pts, 0).toLocaleString()} proj pts`;
+
+  // Best available
+  const avail = PLAYERS.filter(p => !taken.has(p.id)).slice(0, 8);
+  document.getElementById("best").innerHTML = avail.map(p =>
+    `<li><div><div class="name">${p.n}</div><div class="meta">${p.p} · ${p.t}${fitsNeed(p, roster) ? ' · <span class="fit">fills a need</span>' : ""}</div></div>
+     <span class="num vor">${p.v.toFixed(1)}</span>
+     <button class="act mine-btn" data-mine="${p.id}" type="button">Mine</button></li>`
+  ).join("") || `<li class="meta">Everyone's gone.</li>`;
+}
+
+// ---------- Wiring ----------
+const chipNames = ["All", "Hitters", "C", "1B", "2B", "3B", "SS", "OF", "Pitchers", "SP", "RP"];
+document.getElementById("chips").innerHTML = chipNames.map(c =>
+  `<button class="chip" type="button" data-chip="${c}" aria-pressed="${c === filter}">${c}</button>`).join("");
+document.getElementById("chips").addEventListener("click", e => {
+  const b = e.target.closest("[data-chip]"); if (!b) return;
+  filter = b.dataset.chip;
+  document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.chip === filter));
+  render();
+});
+
+const slotSel = document.getElementById("slot");
+slotSel.innerHTML = Array.from({ length: TEAMS }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
+slotSel.value = state.slot;
+slotSel.addEventListener("change", () => { state.slot = +slotSel.value; save(); render(); });
+
+document.body.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.take || b.dataset.mine) {
+    const id = b.dataset.take || b.dataset.mine;
+    if (!state.picks.some(p => p.id === id) && state.picks.length < TOTAL_PICKS) {
+      state.picks.push({ id, mine: !!b.dataset.mine });
+    }
+  } else if (b.dataset.undo) {
+    state.picks = state.picks.filter(p => p.id !== b.dataset.undo);
+  } else if (b.id === "undo") {
+    state.picks.pop();
+  } else if (b.id === "reset") {
+    if (resetArmed) { state.picks = []; resetArmed = false; }
+    else { resetArmed = true; setTimeout(() => { resetArmed = false; render(); }, 4000); }
+  } else return;
+  if (b.id !== "reset") resetArmed = false;
+  save(); render();
+});
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("hide").addEventListener("change", render);
+
+render();
+</script>
