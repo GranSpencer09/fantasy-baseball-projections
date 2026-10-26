@@ -39,6 +39,10 @@ HIT_REGRESS_PA = 1200     # league-average PA mixed in (weighted units)
 PIT_REGRESS_BF = 900      # league-average batters faced mixed in
 SAVANT_TRUST = 0.5        # 0 = ignore Savant, 1 = fully trust expected stats
 PEAK_AGE = 29
+TEAM_TRUST = 0.5          # how much a better/worse lineup moves R, RBI and wins
+LINEUP_SIZE = 13          # hitters per team that count toward team offense
+SKILL_STATS = ["singles", "doubles", "triples", "homeRuns", "baseOnBalls",
+               "hitByPitch", "stolenBases"]  # a hitter's own production, not teammates'
 
 HIT_RATE_STATS = ["singles", "doubles", "triples", "homeRuns", "baseOnBalls",
                   "hitByPitch", "stolenBases", "runs", "rbi"]
@@ -82,6 +86,38 @@ def score(df, weights):
     return sum(df[stat] * pts for stat, pts in weights.items()).round(1)
 
 
+def team_context():
+    """Each team's runs per game last season, and each player's current team."""
+    tr = load("team_runs")
+    tr = tr[tr.season == LAST].set_index("team_id")
+    old_rg = tr.runs / tr.games
+    roster = load("rosters").drop_duplicates("player_id").set_index("player_id")
+    return old_rg, roster
+
+
+def project_team_offense(hitters, team_ids, league_rg, rules):
+    """Projected runs per game for each team, given which team each hitter is on.
+    Steps: score each hitter's own production (no R/RBI, since those depend on
+    teammates), take each team's top hitters by playing time, average their
+    production, and scale league-average runs per game by how good that is.
+    Runs grow faster than lineup quality (more baserunners for each hit to
+    drive in), so quality is squared."""
+    df = hitters.copy()
+    skill_weights = {s: rules["batting"][s] for s in SKILL_STATS}
+    df["skill"] = score(df, skill_weights)
+    df["team_id"] = team_ids.reindex(df.index)
+    df = df.dropna(subset=["team_id"])
+    top = df.sort_values("PA", ascending=False).groupby("team_id").head(LINEUP_SIZE)
+    g = top.groupby("team_id")[["skill", "PA"]].sum()
+    quality = g.skill / g.PA
+    return league_rg * (quality / quality.mean()) ** 2
+
+
+def team_factor(new_rg, old_rg, low, high):
+    """Better lineup than last year -> more runs/RBI/wins. Half-strength by default."""
+    return (1 + TEAM_TRUST * (new_rg / old_rg - 1)).clip(low, high).fillna(1.0)
+
+
 def project_hitters(rules):
     h = load("hitting")
     h = h[h.pos != "P"]
@@ -121,6 +157,20 @@ def project_hitters(rules):
 
     out = rates[HIT_RATE_STATS].mul(proj_pa.reindex(rates.index), axis=0)
     out["PA"] = proj_pa.reindex(rates.index)
+
+    # 6. Team context: runs and RBI depend on who's hitting around you.
+    # Rate the same hitters two ways: on last season's teams and on current
+    # rosters. The difference is purely roster moves (trades, signings, losses).
+    actual_rg, roster = team_context()
+    recent = out[(pa.get(LAST, 0) + pa.get(LAST - 1, 0)).reindex(out.index) > 0]
+    last_team = h[h.season == LAST].set_index("player_id").team_id
+    old_rg = project_team_offense(recent, last_team, actual_rg.mean(), rules)
+    new_rg = project_team_offense(recent, roster.team_id, actual_rg.mean(), rules)
+    out["team_adj"] = team_factor(roster.team_id.reindex(out.index).map(new_rg),
+                                  last_team.reindex(out.index).map(old_rg), 0.9, 1.1)
+    out["runs"] *= out.team_adj
+    out["rbi"] *= out.team_adj
+
     out["points"] = score(out, rules["batting"])
     out["pts_per_PA"] = (out.points / out.PA).round(3)
 
@@ -132,8 +182,9 @@ def project_hitters(rules):
     out["savant_adj"] = rates.savant_adj.round(3)
     out["age"] = age_next
     out["name"] = latest.name
-    out["team"] = latest.team
+    out["team"] = roster.team.reindex(out.index).fillna("FA")   # current team, FA if unsigned
     out["pos"] = latest.pos
+    out["team_adj"] = out.team_adj.round(3)
 
     # Only players who played in one of the last two seasons
     out = out[(pa.get(LAST, 0) + pa.get(LAST - 1, 0)).reindex(out.index) > 0]
@@ -143,11 +194,15 @@ def project_hitters(rules):
         out[s] = out[s].round(0).astype(int)
     cols = ["rank", "name", "team", "pos", "age", "points", f"pts_{LAST}", "change", "pts_per_PA",
             "PA", "runs", "homeRuns", "rbi", "stolenBases", "baseOnBalls", "singles", "doubles",
-            "triples", "hitByPitch", "xwOBA_minus_wOBA", "savant_adj"]
-    return out[cols]
+            "triples", "hitByPitch", "xwOBA_minus_wOBA", "savant_adj", "team_adj"]
+    team_table = pd.DataFrame({"proj_R_per_G": new_rg,
+                               "old_roster_R_per_G": old_rg.reindex(new_rg.index),
+                               f"actual_R_per_G_{LAST}": actual_rg.reindex(new_rg.index)}).round(2)
+    team_table.index = team_table.index.astype(int)
+    return out[cols], team_table
 
 
-def project_pitchers(rules):
+def project_pitchers(rules, new_rg, old_rg):
     p = load("pitching")
     p = p[p.pos.isin(["P", "TWP"])]  # drop position players who mopped up an inning
     cols = PIT_RATE_STATS + ["battersFaced"]
@@ -209,6 +264,13 @@ def project_pitchers(rules):
     out["wins"] = np.where(role == "SP", w_rate_sp.reindex(out.index) * proj_gs,
                            w_rate_rp.reindex(out.index) * proj_g)
 
+    # 6. Team context: better run support -> more wins
+    _, roster = team_context()
+    last_team = p[p.season == LAST].set_index("player_id").team_id
+    out["team_adj"] = team_factor(roster.team_id.reindex(out.index).map(new_rg),
+                                  last_team.reindex(out.index).map(old_rg), 0.85, 1.15)
+    out["wins"] *= out.team_adj
+
     # Saves: mostly about last year's role, so weight it heavily
     sv_rate = (3 * sv.get(LAST, 0) + sv.get(LAST - 1, 0)) / (3 * g.get(LAST, 0) + g.get(LAST - 1, 0) + 20)
     out["saves"] = np.where(role == "RP", sv_rate.reindex(out.index) * proj_g, 0)
@@ -224,7 +286,8 @@ def project_pitchers(rules):
     out["ERA_minus_xERA"] = ((sav.a - sav.e) / sav.w).round(2).reindex(out.index)
     out["age"] = age_next
     out["name"] = latest.name
-    out["team"] = latest.team
+    out["team"] = roster.team.reindex(out.index).fillna("FA")
+    out["team_adj"] = out.team_adj.round(3)
 
     out = out[(bf.get(LAST, 0) + bf.get(LAST - 1, 0)).reindex(out.index) > 0]
     out = out.sort_values("points", ascending=False)
@@ -232,17 +295,24 @@ def project_pitchers(rules):
     for s in ["G", "IP", "strikeOuts", "wins", "saves", "BF"]:
         out[s] = out[s].round(0).astype(int)
     cols = ["rank", "name", "team", "role", "age", "points", f"pts_{LAST}", "change", "pts_per_G",
-            "G", "IP", "strikeOuts", "wins", "saves", "ERA", "ERA_minus_xERA"]
+            "G", "IP", "strikeOuts", "wins", "saves", "ERA", "ERA_minus_xERA", "team_adj"]
     return out[cols]
 
 
 def main():
     with open("scoring.json") as f:
         rules = json.load(f)
-    hitters = project_hitters(rules)
-    pitchers = project_pitchers(rules)
+    hitters, teams = project_hitters(rules)
+    pitchers = project_pitchers(rules, teams.proj_R_per_G, teams.old_roster_R_per_G)
     hitters.to_csv(f"projections_{NEXT}_hitters.csv", index=False)
     pitchers.to_csv(f"projections_{NEXT}_pitchers.csv", index=False)
+
+    # Team offense table: who got better or worse
+    names = load("rosters").drop_duplicates("team_id").set_index("team_id").team
+    teams.insert(0, "team", names.reindex(teams.index))
+    teams["roster_change"] = (teams.proj_R_per_G - teams.old_roster_R_per_G).round(2)
+    teams = teams.sort_values("proj_R_per_G", ascending=False)
+    teams.to_csv(f"projections_{NEXT}_team_offense.csv", index=False)
 
     pd.set_option("display.width", 200)
     print(f"\nTop 20 hitters, {NEXT} projection")
@@ -251,6 +321,8 @@ def main():
     print(pitchers[pitchers.role == "SP"].head(15)[["rank", "name", "age", "points", f"pts_{LAST}", "IP", "ERA"]].to_string(index=False))
     print(f"\nTop 10 RP")
     print(pitchers[pitchers.role == "RP"].head(10)[["rank", "name", "points", f"pts_{LAST}", "saves"]].to_string(index=False))
+    print(f"\nTeam offense, projected runs per game")
+    print(teams.to_string(index=False))
 
 
 if __name__ == "__main__":

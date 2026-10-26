@@ -22,7 +22,10 @@ Based on Marcel, a simple projection system that holds up well against fancier o
 3. **Savant correction:** move halfway from actual results toward expected stats (xwOBA for hitters, xERA and xBA for pitchers).
 4. **Age:** +0.6% per year under 29, -0.3% per year over.
 5. **Playing time:** half of last season's workload, plus a tenth of the year before, plus a baseline.
-6. **Score:** projected stats times league point values.
+6. **Team context:** rate every team's lineup twice, on last season's rosters and on current 40-man rosters. If a team's lineup got better through trades or signings, its hitters' R/RBI and its pitchers' wins go up (half-strength, capped). Rerun `fetch_data.py` during the offseason to catch moves.
+7. **Score:** projected stats times league point values.
+
+Outputs include `projections_2027_team_offense.csv`, showing each team's projected runs per game and how much roster moves changed it.
 
 ## Data sources
 
@@ -31,7 +34,8 @@ Based on Marcel, a simple projection system that holds up well against fancier o
 
 ## Roadmap
 
-- Team context (offense quality for wins, R, RBI)
+- Park factors (Coors, etc.)
+- Bullpen role changes for saves
 - Injury data and depth charts for playing time
 - In-season updates that blend projections with current stats
 - Draft-day board

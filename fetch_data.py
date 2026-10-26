@@ -36,6 +36,7 @@ def mlb_stats(group, season):
         row["player_id"] = split["player"]["id"]
         row["name"] = split["player"]["fullName"]
         row["team"] = split.get("team", {}).get("name", "")
+        row["team_id"] = split.get("team", {}).get("id")
         row["pos"] = split.get("position", {}).get("abbreviation", "")
         row["season"] = season
         rows.append(row)
@@ -57,14 +58,44 @@ def savant_expected(player_type, season):
     return df
 
 
+def team_runs(season):
+    """Runs scored and games played by every team in one season."""
+    params = dict(stats="season", group="hitting", season=season, sportId=1)
+    data = requests.get("https://statsapi.mlb.com/api/v1/teams/stats",
+                        params=params, timeout=60).json()
+    return pd.DataFrame([{"team_id": s["team"]["id"], "team": s["team"]["name"],
+                          "runs": s["stat"]["runs"], "games": s["stat"]["gamesPlayed"],
+                          "season": season}
+                         for s in data["stats"][0]["splits"]])
+
+
+def current_rosters():
+    """Who is on each team's 40-man roster right now. This is what catches
+    trades and free agent signings: rerun it and players move teams."""
+    teams = requests.get("https://statsapi.mlb.com/api/v1/teams",
+                         params={"sportId": 1}, timeout=60).json()["teams"]
+    rows = []
+    for t in teams:
+        roster = requests.get(f"https://statsapi.mlb.com/api/v1/teams/{t['id']}/roster",
+                              params={"rosterType": "40Man"}, timeout=60).json()
+        for r in roster.get("roster", []):
+            rows.append({"player_id": r["person"]["id"], "team_id": t["id"],
+                         "team": t["name"]})
+    return pd.DataFrame(rows)
+
+
 def main():
-    tables = {"hitting": [], "pitching": [], "savant_batter": [], "savant_pitcher": []}
+    tables = {"hitting": [], "pitching": [], "savant_batter": [], "savant_pitcher": [],
+              "team_runs": []}
     for season in SEASONS:
         print(f"Pulling {season}...")
         tables["hitting"].append(mlb_stats("hitting", season))
         tables["pitching"].append(mlb_stats("pitching", season))
         tables["savant_batter"].append(savant_expected("batter", season))
         tables["savant_pitcher"].append(savant_expected("pitcher", season))
+        tables["team_runs"].append(team_runs(season))
+    print("Pulling current rosters...")
+    tables["rosters"] = [current_rosters()]
 
     with sqlite3.connect(DB) as db:
         for name, frames in tables.items():
