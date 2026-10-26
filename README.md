@@ -8,6 +8,7 @@ Projects next season's fantasy points for every MLB player using my league's hea
 pip install pandas requests numpy
 python fetch_data.py     # download 3 seasons of MLB + Baseball Savant data into baseball.db
 python project.py        # build projections_2027_hitters.csv and projections_2027_pitchers.csv
+python value.py          # draft_rankings_2027.csv: value over replacement for my league
 python rank_players.py   # (optional) rank last season's actual points
 ```
 
@@ -26,6 +27,10 @@ Based on Marcel, a simple projection system that holds up well against fancier o
 7. **Score:** projected stats times league point values.
 
 Outputs include `projections_2027_team_offense.csv`, showing each team's projected runs per game and how much roster moves changed it.
+
+## Draft value
+
+`value.py` converts points into value over replacement (VOR) using the roster settings in `league.json` (10 teams, C/1B/2B/3B/SS/3 OF/2 Util, 2 SP/2 RP/4 P). It fills every starting slot league-wide, takes the best leftover player at each position as replacement level, and ranks hitters and pitchers together by how far above that line they are. Position eligibility follows Yahoo's rule: 5 starts or 10 games at a position last season.
 
 ## Data sources
 

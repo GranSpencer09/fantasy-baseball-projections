@@ -1,0 +1,9 @@
+{
+  "name": "Webb's World / Top Tier Spencer",
+  "teams": 10,
+  "hitter_slots": {"C": 1, "1B": 1, "2B": 1, "3B": 1, "SS": 1, "OF": 3, "Util": 2},
+  "pitcher_slots": {"SP": 2, "RP": 2, "P": 4},
+  "bench": 5,
+  "min_weekly_innings": 20,
+  "eligibility": {"min_games": 10, "min_starts": 5}
+}

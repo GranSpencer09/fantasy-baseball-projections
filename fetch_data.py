@@ -69,6 +69,20 @@ def team_runs(season):
                          for s in data["stats"][0]["splits"]])
 
 
+def games_by_position(season):
+    """Games played and started at each position. Used for position eligibility."""
+    params = dict(stats="season", group="fielding", season=season, sportId=1,
+                  playerPool="ALL", limit=10000)
+    data = requests.get("https://statsapi.mlb.com/api/v1/stats",
+                        params=params, timeout=60).json()
+    return pd.DataFrame([{"player_id": s["player"]["id"],
+                          "position": s["position"]["abbreviation"],
+                          "games": s["stat"].get("gamesPlayed", 0),
+                          "starts": s["stat"].get("gamesStarted", 0),
+                          "season": season}
+                         for s in data["stats"][0]["splits"]])
+
+
 def current_rosters():
     """Who is on each team's 40-man roster right now. This is what catches
     trades and free agent signings: rerun it and players move teams."""
@@ -86,7 +100,7 @@ def current_rosters():
 
 def main():
     tables = {"hitting": [], "pitching": [], "savant_batter": [], "savant_pitcher": [],
-              "team_runs": []}
+              "team_runs": [], "positions": []}
     for season in SEASONS:
         print(f"Pulling {season}...")
         tables["hitting"].append(mlb_stats("hitting", season))
@@ -94,6 +108,7 @@ def main():
         tables["savant_batter"].append(savant_expected("batter", season))
         tables["savant_pitcher"].append(savant_expected("pitcher", season))
         tables["team_runs"].append(team_runs(season))
+        tables["positions"].append(games_by_position(season))
     print("Pulling current rosters...")
     tables["rosters"] = [current_rosters()]
 

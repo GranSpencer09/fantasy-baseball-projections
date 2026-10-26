@@ -304,8 +304,8 @@ def main():
         rules = json.load(f)
     hitters, teams = project_hitters(rules)
     pitchers = project_pitchers(rules, teams.proj_R_per_G, teams.old_roster_R_per_G)
-    hitters.to_csv(f"projections_{NEXT}_hitters.csv", index=False)
-    pitchers.to_csv(f"projections_{NEXT}_pitchers.csv", index=False)
+    hitters.to_csv(f"projections_{NEXT}_hitters.csv", index_label="player_id")
+    pitchers.to_csv(f"projections_{NEXT}_pitchers.csv", index_label="player_id")
 
     # Team offense table: who got better or worse
     names = load("rosters").drop_duplicates("team_id").set_index("team_id").team
