@@ -1,0 +1,24 @@
+{
+  "league": "Head-to-head points",
+  "batting": {
+    "runs": 1.9,
+    "singles": 2.6,
+    "doubles": 5.2,
+    "triples": 7.8,
+    "homeRuns": 10.4,
+    "rbi": 1.9,
+    "stolenBases": 4.2,
+    "baseOnBalls": 2.6,
+    "hitByPitch": 2.6
+  },
+  "pitching": {
+    "wins": 8,
+    "saves": 8,
+    "outs": 1,
+    "strikeOuts": 3,
+    "hits": -1.3,
+    "earnedRuns": -3,
+    "baseOnBalls": -1.3,
+    "hitBatsmen": -1.3
+  }
+}
