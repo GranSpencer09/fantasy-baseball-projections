@@ -34,6 +34,9 @@ def fetch_pro():
             params = dict(type=system, stats=kind, pos="all", team=0, players=0, lg="all")
             data = requests.get(URL, params=params, timeout=120).json()
             df = pd.DataFrame(data)
+            if df.empty:  # e.g. ZiPS is blank between seasons; keep the other systems
+                print(f"  {system} {kind}: no projections served yet, skipping")
+                continue
             df = df[df.xMLBAMID.notna()].rename(columns=cols)
             df["player_id"] = df.xMLBAMID.astype(int)
             df["system"], df["kind"] = system, kind
